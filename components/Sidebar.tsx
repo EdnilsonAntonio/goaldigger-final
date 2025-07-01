@@ -180,9 +180,9 @@ export default function Sidebar() {
                         !isLoading ? (
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
-                                    <Avatar>
-                                        <AvatarImage src="https://github.com/shadcn.png" />
-                                        <AvatarFallback>CN</AvatarFallback>
+                                    <Avatar className="bg-neutral-700">
+                                        <AvatarImage src={`${user?.picture}`} />
+                                        <AvatarFallback>{`${user?.given_name?.[0]}${user?.family_name?.[0]}`}</AvatarFallback>
                                     </Avatar>
                                     {sidebarOpen && (
                                         <span className="text-start">
