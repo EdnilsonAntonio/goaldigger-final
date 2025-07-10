@@ -42,6 +42,12 @@ export async function GET(req: NextRequest) {
       where: {
         userId: userId,
       },
+      include: {
+        tasks: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
     });
 
     if (!tasksLists) {
@@ -59,7 +65,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const { tasksListId, completion } = await req.json();
+  const { tasksListId, title, completion } = await req.json();
 
   if (!tasksListId) {
     return NextResponse.json(
@@ -82,7 +88,7 @@ export async function PUT(req: NextRequest) {
 
     await prisma.tasksList.update({
       where: { id: tasksListId },
-      data: { completion: completion }
+      data: { title: title, completion: completion }
     });
 
     return NextResponse.json(

@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     endDate,
   } = await req.json();
 
-  if (!userId || !title) {
+  if (!userId || !title || !tasksListId) {
     return NextResponse.json(
-      { message: "userId and title are required!" },
+      { message: "userId, title and tasksListId are required!" },
       { status: 400 }
     );
   }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         startDate,
         endDate,
         user: { connect: { id: userId } },
-        ...(tasksListId && { tasksList: { connect: { id: tasksListId } } }),
+        tasksList: { connect: { id: tasksListId } },
       },
     });
     return NextResponse.json(task, { status: 201 });
@@ -70,11 +70,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    if (!tasks || tasks.length === 0) {
-      return NextResponse.json({ message: "No tasks found!" }, { status: 404 });
-    }
-
-    return NextResponse.json(tasks, { status: 200 });
+    return NextResponse.json(tasks || [], { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -90,6 +86,7 @@ export async function PUT(req: NextRequest) {
     taskId,
     title,
     description,
+    state,
     repeat,
     repeatInterval,
     repeatUnit,
@@ -101,7 +98,10 @@ export async function PUT(req: NextRequest) {
   } = await req.json();
 
   if (!taskId) {
-      return NextResponse.json({ message: "taskId is required!" }, { status: 400 });
+    return NextResponse.json(
+      { message: "taskId is required!" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -113,28 +113,25 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Task not found!" }, { status: 404 });
     }
 
-    if (!title) {
-      return NextResponse.json({ message: "Title is required" }, { status: 400 });
-    }
-
     await prisma.task.update({
       where: { id: taskId },
       data: {
-        title,
-        description,
-        repeat,
-        repeatInterval,
-        repeatUnit,
-        repeatDays,
-        occurences,
-        priority,
-        startDate,
-        endDate,
+        ...(title && { title }),
+        ...(description !== undefined && { description }),
+        ...(state && { state }),
+        ...(repeat !== undefined && { repeat }),
+        ...(repeatInterval !== undefined && { repeatInterval }),
+        ...(repeatUnit && { repeatUnit }),
+        ...(repeatDays && { repeatDays }),
+        ...(occurences !== undefined && { occurences }),
+        ...(priority && { priority }),
+        ...(startDate !== undefined && { startDate }),
+        ...(endDate !== undefined && { endDate }),
       },
     });
 
     return NextResponse.json(
-      { message: "Tasks List updated successfully" },
+      { message: "Task updated successfully" },
       { status: 200 }
     );
   } catch (error) {

@@ -86,8 +86,8 @@ model Task {
   description    String?
   state          TaskState    @default(undone)
 
-  tasksListId    String?
-  tasksList      TasksList?   @relation(fields: [tasksListId], references: [id], onDelete: Cascade)
+  tasksListId    String
+  tasksList      TasksList   @relation(fields: [tasksListId], references: [id], onDelete: Cascade)
 
   repeat         Boolean      @default(false)
   repeatInterval Int?         
