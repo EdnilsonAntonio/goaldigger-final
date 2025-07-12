@@ -4,6 +4,7 @@ import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -98,7 +99,7 @@ export default function EditTaskForm({
             : "none";
 
         if (!updatedTitle) {
-            alert("Task title is required.");
+            toast.error("Task title is required.");
             return;
         }
 
@@ -130,11 +131,11 @@ export default function EditTaskForm({
             }
 
             // Notify parent component about successful update
-            alert("Task updated successfully!");
+            toast.success("Task updated successfully!");
             onTaskUpdated?.();
         } catch (error) {
             console.error('Error updating task:', error);
-            alert(`Failed to update task: ${error instanceof Error ? error.message : 'Please try again.'}`);
+            toast.error(`Failed to update task: ${error instanceof Error ? error.message : 'Please try again.'}`);
         }
     };
 

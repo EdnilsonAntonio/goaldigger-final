@@ -45,7 +45,7 @@ export default async function TasksPage() {
             </div>
 
             {/* Tasks Card */}
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 <div className="bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 p-6 hover:border-neutral-600 transition-all duration-300 shadow-xl">
                     <TasksLists userId={userId} />
                 </div>

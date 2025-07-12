@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: {
-        createdAt: "asc",
+        order: "asc",
       },
     });
 
@@ -103,6 +103,38 @@ export async function PUT(req: NextRequest) {
     console.error(error);
     return NextResponse.json(
       { message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const { listOrders } = await req.json();
+
+  if (!listOrders || !Array.isArray(listOrders)) {
+    return NextResponse.json(
+      { message: "listOrders array is required!" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Update each list with its new order
+    for (const { listId, order } of listOrders) {
+      await prisma.tasksList.update({
+        where: { id: listId },
+        data: { order },
+      });
+    }
+
+    return NextResponse.json(
+      { message: "List order updated successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { message: "Error updating list order" },
       { status: 500 }
     );
   }

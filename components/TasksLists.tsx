@@ -4,6 +4,7 @@ import React from "react";
 import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed, GripVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddTaskForm from "./AddTaskForm";
+import { toast } from "sonner";
 import {
     DndContext,
     closestCenter,
@@ -90,7 +91,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     );
 
     // Handle drag end for tasks within a list
-    const handleDragEnd = async (event: DragEndEvent, tasksListId: string) => {
+    const handleTaskDragEnd = async (event: DragEndEvent, tasksListId: string) => {
         const { active, over } = event;
 
         if (active.id !== over?.id) {
@@ -130,8 +131,41 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     };
 
+    // Handle drag end for lists
+    const handleListDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            setTasksLists((prevLists) => {
+                const oldIndex = prevLists.findIndex((list) => list.id === active.id);
+                const newIndex = prevLists.findIndex((list) => list.id === over?.id);
+
+                const newLists = arrayMove(prevLists, oldIndex, newIndex);
+
+                // Save the new order to the database
+                const listOrders = newLists.map((list, index) => ({
+                    listId: list.id,
+                    order: index
+                }));
+
+                // Update the database
+                fetch("/api/tasksLists", {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ listOrders }),
+                }).catch((error) => {
+                    console.error("Error updating list order:", error);
+                });
+
+                return newLists;
+            });
+        }
+    };
+
     // Sortable Task Component
-    const SortableTask = ({ task, tasksListId }: { task: Task; tasksListId: string }) => {
+    const SortableTask = ({ task, tasksListId, fontSizes }: { task: Task; tasksListId: string; fontSizes: any }) => {
         const {
             attributes,
             listeners,
@@ -172,9 +206,9 @@ export default function TasksLists({ userId }: { userId: string }) {
                             {expandedTaskId === task.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>
                         {getTaskState(task.id, task.state)}
-                        {getTaskTitle(task)}
-                        {getTaskPriority(task.priority)}
-                        {getDueStatus(task.endDate ?? null, task.state)}
+                        {getTaskTitle(task, fontSizes.taskTitle)}
+                        {getTaskPriority(task.priority, fontSizes.badge, tasksLists.length === 1)}
+                        {getDueStatus(task.endDate ?? null, task.state, fontSizes.badge)}
                     </span>
                     {/* Action buttons */}
                     <span className="flex items-center gap-2 opacity-70 group-hover:opacity-100 transition-all duration-150">
@@ -214,19 +248,19 @@ export default function TasksLists({ userId }: { userId: string }) {
                 {/* Expanded content */}
                 {expandedTaskId === task.id && (
                     <div className="mt-2 ml-8 flex flex-col gap-2">
-                        {getTaskDescription(task)}
+                        {getTaskDescription(task, fontSizes.taskDescription)}
                         <div className="flex flex-wrap gap-2 mt-1">
                             {task.startDate && (
-                                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                <span className={`inline-block px-2 py-1 rounded-full ${fontSizes.badge} font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600`}>
                                     Start: {formatDate(task.startDate)}
                                 </span>
                             )}
                             {task.endDate && (
-                                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                <span className={`inline-block px-2 py-1 rounded-full ${fontSizes.badge} font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600`}>
                                     End: {formatDate(task.endDate)}
                                 </span>
                             )}
-                            {getTaskRepeat(task)}
+                            {getTaskRepeat(task, fontSizes.badge)}
                         </div>
                     </div>
                 )}
@@ -234,9 +268,187 @@ export default function TasksLists({ userId }: { userId: string }) {
         );
     };
 
+    // Calculate dynamic width based on number of lists
+    const getListWidth = () => {
+        const listCount = tasksLists.length;
+        if (listCount === 1) return "w-full";
+        if (listCount === 2) return "w-1/2";
+        return "w-1/2"; // For 3+ lists, keep at 1/2 width to enable scrolling
+    };
+
+    // Calculate dynamic font sizes based on number of lists
+    const getFontSizes = () => {
+        const listCount = tasksLists.length;
+        if (listCount === 1) {
+            return {
+                title: "text-xl",
+                subtitle: "text-sm",
+                taskTitle: "text-base",
+                taskDescription: "text-sm",
+                badge: "text-xs"
+            };
+        }
+        // For 2+ lists
+        return {
+            title: "text-lg",
+            subtitle: "text-xs",
+            taskTitle: "text-sm",
+            taskDescription: "text-xs",
+            badge: "text-xs"
+        };
+    };
+
+    // Sortable List Component
+    const SortableList = ({ tasksList }: { tasksList: TasksList }) => {
+        const {
+            attributes,
+            listeners,
+            setNodeRef,
+            transform,
+            transition,
+            isDragging,
+        } = useSortable({ id: tasksList.id });
+
+        const style = {
+            transform: CSS.Transform.toString(transform),
+            transition,
+            opacity: isDragging ? 0.5 : 1,
+        };
+
+        const fontSizes = getFontSizes();
+
+        return (
+            <li
+                ref={setNodeRef}
+                style={style}
+                className={`bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 p-6 shadow-lg hover:border-blue-600 transition-all duration-300 ${getListWidth()} min-w-[350px] flex-shrink-0`}
+            >
+                {/* Drag Handle for List */}
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing p-2 hover:bg-neutral-700/50 rounded transition-colors duration-150 mb-4 flex items-center gap-2 text-neutral-400"
+                >
+                    <GripVertical size={16} />
+                    <span className="text-sm font-medium">Drag to reorder list</span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full mb-3">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className={`${fontSizes.subtitle} text-neutral-400`}>Progress</span>
+                        <span className={`${fontSizes.subtitle} text-neutral-400`}>{getListCompletion(tasksList.tasks)}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-neutral-700 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-blue-500 transition-all duration-300"
+                            style={{ width: `${getListCompletion(tasksList.tasks)}%` }}
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center justify-between mb-4">
+                    <span className={`${fontSizes.title} font-semibold text-white flex items-center gap-2`}>
+                        {tasksList.title}
+                    </span>
+                    <div className="flex items-center">
+                        <span
+                            onClick={() => showAddTaskForm(tasksList.id)}
+                            className={`inline-flex items-center gap-1 text-blue-400 cursor-pointer hover:text-blue-300 ${fontSizes.subtitle} font-medium px-2 py-1 rounded transition-all duration-150`}
+                        >
+                            <ListPlus size={18} /> Add Task
+                        </span>
+                        {/* List Menu */}
+                        <Popover>
+                            <PopoverTrigger>
+                                <EllipsisVertical size={18} className="cursor-pointer" />
+                            </PopoverTrigger>
+                            <PopoverContent className="bg-neutral-800 text-white border border-neutral-700">
+                                <ul>
+                                    {/* Reset progress */}
+                                    <li onClick={() => { resetProgress(tasksList.id, tasksList.tasks) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
+                                        <CircleDashed size={16} /> Reset progress
+                                    </li>
+                                    {/* Edit list name */}
+                                    <AlertDialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                                        <AlertDialogTrigger className="w-full">
+                                            <li className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
+                                                <SquarePen size={16} /> Edit list name
+                                            </li>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700 w-full max-w-4xl" style={{ maxWidth: '70vw' }}>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle className="flex items-center gap-2"><SquarePen size={16} /> Edit list name</AlertDialogTitle>
+                                                <EditTasksListForm />
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={(e) => { e.preventDefault(); handleEditList(tasksList.id); }} className="cursor-pointer bg-white text-black">Edit</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    {/* Delete list */}
+                                    <AlertDialog>
+                                        <AlertDialogTrigger className="w-full">
+                                            <li className="cursor-pointer flex items-center gap-2 text-red-700 hover:bg-red-400 px-2 py-1 rounded">
+                                                <Trash2 size={16} /> Delete list
+                                            </li>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This action cannot be undone. This will permanently delete your list
+                                                    and remove it's data from our servers.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => { deleteTasksList(tasksList.id) }} className="cursor-pointer bg-white text-black">Continue</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </ul>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+                <AddTaskForm
+                    userId={userId}
+                    tasksListId={tasksList.id}
+                    visible={addTaskFormVisibleId === tasksList.id}
+                    onTaskCreated={handleTasksUpdate}
+                    onClose={() => setAddTaskFormVisibleId(null)}
+                    currentTaskCount={tasksList.tasks.length}
+                    fontSizes={fontSizes}
+                />
+                {/* Tasks  */}
+                <ul className="divide-y divide-neutral-700 mt-4">
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleTaskDragEnd(event, tasksList.id)}
+                    >
+                        <SortableContext
+                            items={tasksList.tasks.map(task => task.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {tasksList.tasks.length === 0 && (
+                                <li className="text-neutral-400 text-sm py-4 text-center">No tasks in this list yet.</li>
+                            )}
+                            {tasksList.tasks.map((task) => (
+                                <SortableTask key={task.id} task={task} tasksListId={tasksList.id} fontSizes={fontSizes} />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
+                </ul>
+            </li>
+        );
+    };
+
     interface TasksList {
         id: string;
         title: string;
+        order: number;
         tasks: Task[];
     }
 
@@ -278,12 +490,12 @@ export default function TasksLists({ userId }: { userId: string }) {
         const title = tasksListTitle.current?.value || "";
 
         if (!userId) {
-            alert("userId is required!");
+            toast.error("User ID is required!");
             return;
         }
 
         if (!title) {
-            alert("Title is required!");
+            toast.error("Title is required!");
             return;
         }
 
@@ -296,11 +508,11 @@ export default function TasksLists({ userId }: { userId: string }) {
                 body: JSON.stringify({ userId, title })
             })
 
-            alert("Task list created Successfully!");
+            toast.success("Task list created successfully!");
             fetchTasksLists();
         } catch (error) {
             console.error(error);
-            alert("Error creating the tasks list")
+            toast.error("Error creating the tasks list")
         }
     }
     // Editar uma lista de tarefa
@@ -308,7 +520,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         const title = tasksListNewTitle.current?.value || "";
 
         if (!title) {
-            alert("Title is required!");
+            toast.error("Title is required!");
             return;
         }
 
@@ -321,19 +533,19 @@ export default function TasksLists({ userId }: { userId: string }) {
                 body: JSON.stringify({ tasksListId, title })
             })
 
-            alert("Task list updated successfully!");
+            toast.success("Task list updated successfully!");
             fetchTasksLists();
             setEditDialogOpen(false); // Close the dialog
         } catch (error) {
             console.error(error);
-            alert("Error updating the tasks list")
+            toast.error("Error updating the tasks list")
         }
     }
 
     // Apagar uma lista de tarefa
     const deleteTasksList = async (tasksListId: string) => {
         if (!tasksListId) {
-            alert("task list id is required");
+            toast.error("Task list ID is required");
             return;
         }
 
@@ -345,18 +557,18 @@ export default function TasksLists({ userId }: { userId: string }) {
                 },
                 body: JSON.stringify({ tasksListId })
             });
-            alert("Task list successfully deleted");
+            toast.success("Task list successfully deleted");
             fetchTasksLists();
         } catch (error) {
             console.error(error);
-            alert("Failed to delete tasks list");
+            toast.error("Failed to delete tasks list");
         }
     }
 
     // Resetar o progresso de uma lista de tarefa
     const resetProgress = async (tasksListId: string, tasks: Task[]) => {
         if (!tasksListId) {
-            alert("tasks list id is required!");
+            toast.error("Tasks list ID is required!");
             return;
         }
 
@@ -372,11 +584,11 @@ export default function TasksLists({ userId }: { userId: string }) {
                     body: JSON.stringify({ taskId: tasks[index].id, state })
                 })
             }
-            alert("Progress reset");
+            toast.success("Progress reset successfully");
             fetchTasksLists();
         } catch (error) {
             console.error(error);
-            alert("Error reseting the list progress");
+            toast.error("Error resetting the list progress");
         }
     }
 
@@ -385,7 +597,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     // Apagar uma tarefa
     const handleDeleteTask = async (taskId: string) => {
         if (!taskId) {
-            alert("taskId is required");
+            toast.error("Task ID is required");
             console.error("taskId is required");
             return;
         }
@@ -408,7 +620,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     // Mudar o estado de uma tarefa
     const handleChangeTaskState = async (taskId: string, state: "done" | "undone") => {
         if (!taskId) {
-            alert("taskId is required");
+            toast.error("Task ID is required");
             console.error("taskId is required");
             return;
         }
@@ -442,7 +654,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     // Formulário de adição de listas de tarefas
     const AddTasksListForm = () => {
         return (
-            <form onSubmit={handleAddList} className={`mt-4 mb-8 w-full max-w-2xl ${!showAddTasksList ? "hidden" : ""} bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200`}>
+            <form onSubmit={handleAddList} className={`mt-4 mb-8 w-full max-w-7xl ${!showAddTasksList ? "hidden" : ""} bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200`}>
                 <input
                     ref={tasksListTitle}
                     type="text"
@@ -462,7 +674,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     // Formulário de edição de listas de tarefas
     const EditTasksListForm = () => {
         return (
-            <div className="mt-4 mb-8 w-full max-w-2xl bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200">
+            <div className="mt-4 mb-8 w-full max-w-7xl bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200">
                 <input
                     ref={tasksListNewTitle}
                     type="text"
@@ -476,22 +688,22 @@ export default function TasksLists({ userId }: { userId: string }) {
     // --- OBTER INFORMAÇÕES DA TASK FORA DA RENDERIZAÇÃO ---
 
     // Obter o título da tarefa
-    function getTaskTitle(task: Task) {
+    function getTaskTitle(task: Task, fontSize: string = "text-base") {
         if (!task.title) return null;
 
         return (
-            <span className={task.state === "done" ? "line-through text-neutral-400" : "text-white"}>
+            <span className={`${task.state === "done" ? "line-through text-neutral-400" : "text-white"} ${fontSize}`}>
                 {task.title}
             </span>
         )
     }
 
     // Obter a descrição da tarefa
-    function getTaskDescription(task: Task) {
+    function getTaskDescription(task: Task, fontSize: string = "text-base") {
         if (!task.description) return null;
 
         return (
-            <div className="text-base text-neutral-200 whitespace-pre-line">
+            <div className={`${fontSize} text-neutral-200 whitespace-pre-line`}>
                 {task.description}
             </div>
         )
@@ -516,34 +728,37 @@ export default function TasksLists({ userId }: { userId: string }) {
     }
 
     // Obter a prioridade da tarefa
-    function getTaskPriority(priority?: string) {
+    function getTaskPriority(priority?: string, fontSize: string = "text-xs", showText: boolean = true) {
         if (priority === "none" || null) return null;
 
         if (priority === "high") {
             return (
-                <span className="flex gap-2 ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-red-800/60 text-red-200 border border-red-600">
-                    <CloudLightning size={16} />  {priority.charAt(0).toUpperCase() + priority.slice(1)} priority
+                <span className={`flex gap-2 ml-2 px-2 py-1 rounded-full ${fontSize} font-semibold bg-red-800/60 text-red-200 border border-red-600`}>
+                    <CloudLightning size={16} />
+                    {showText && ` ${priority.charAt(0).toUpperCase() + priority.slice(1)} priority`}
                 </span>
             );
         }
         if (priority === "medium") {
             return (
-                <span className="flex gap-2 ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-800/60 text-yellow-200 border border-yellow-600">
-                    <CloudHail size={16} />  {priority.charAt(0).toUpperCase() + priority.slice(1)} priority
+                <span className={`flex gap-2 ml-2 px-2 py-1 rounded-full ${fontSize} font-semibold bg-yellow-800/60 text-yellow-200 border border-yellow-600`}>
+                    <CloudHail size={16} />
+                    {showText && ` ${priority.charAt(0).toUpperCase() + priority.slice(1)} priority`}
                 </span>
             );
         }
         if (priority === "low") {
             return (
-                <span className="flex gap-2 ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-green-800/60 text-green-200 border border-green-600">
-                    <Wind size={16} /> {priority.charAt(0).toUpperCase() + priority.slice(1)} priority
+                <span className={`flex gap-2 ml-2 px-2 py-1 rounded-full ${fontSize} font-semibold bg-green-800/60 text-green-200 border border-green-600`}>
+                    <Wind size={16} />
+                    {showText && ` ${priority.charAt(0).toUpperCase() + priority.slice(1)} priority`}
                 </span>
             );
         }
     }
 
     // Obter as repetições da tarefa
-    function getTaskRepeat(task: Task) {
+    function getTaskRepeat(task: Task, fontSize: string = "text-xs") {
         if (!task.repeat) return null;
 
         let repeatText = "";
@@ -558,7 +773,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
 
         return (
-            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+            <span className={`inline-block px-2 py-1 rounded-full ${fontSize} font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600`}>
                 {repeatText}
             </span>
         );
@@ -572,7 +787,7 @@ export default function TasksLists({ userId }: { userId: string }) {
     }
 
     // Verificar se a tarefa está vencida
-    function getDueStatus(endDateString: string | null, state: string): React.ReactElement | null {
+    function getDueStatus(endDateString: string | null, state: string, fontSize: string = "text-xs"): React.ReactElement | null {
         if (!endDateString) return null;
 
         const endDate = new Date(endDateString);
@@ -583,13 +798,13 @@ export default function TasksLists({ userId }: { userId: string }) {
 
         if (diffDays < 0 && state !== "done") {
             return (
-                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-800/60 text-red-200 border border-red-600">
+                <span className={`inline-block px-2 py-1 rounded-full ${fontSize} font-semibold bg-red-800/60 text-red-200 border border-red-600`}>
                     Overdue by {Math.abs(diffDays)} day{Math.abs(diffDays) > 1 ? "s" : ""}
                 </span>
             );
         } else if (diffDays < 7) {
             return (
-                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-orange-800/60 text-orange-200 border border-orange-600">
+                <span className={`inline-block px-2 py-1 rounded-full ${fontSize} font-semibold bg-orange-800/60 text-orange-200 border border-orange-600`}>
                     Due in {diffDays} day{diffDays > 1 ? "s" : ""}
                 </span>
             );
@@ -667,7 +882,7 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     useEffect(() => {
         if (!userId) {
-            alert("userId is required");
+            toast.error("User ID is required");
             return;
         }
 
@@ -678,7 +893,7 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     return (
         <div className="flex flex-col items-center justify-center p-4 w-full">
-            <div className="flex items-center justify-between w-full max-w-2xl mb-6">
+            <div className="flex items-center justify-between w-full max-w-7xl mb-6">
                 <h2 className="text-2xl font-bold text-white text-center">Your Task Lists</h2>
                 <button
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
@@ -690,122 +905,22 @@ export default function TasksLists({ userId }: { userId: string }) {
             </div>
             <AddTasksListForm />
             {/* Tasks Lists */}
-            <ul className="flex flex-col gap-8 w-full max-w-2xl">
-                {tasksLists.map((tasksList) => (
-                    <li
-                        key={tasksList.id}
-                        className="bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 p-6 shadow-lg hover:border-blue-600 transition-all duration-300 w-full"
-                    >
-                        {/* Progress Bar */}
-                        <div className="w-full mb-3">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs text-neutral-400">Progress</span>
-                                <span className="text-xs text-neutral-400">{getListCompletion(tasksList.tasks)}%</span>
-                            </div>
-                            <div className="w-full h-2 bg-neutral-700 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-blue-500 transition-all duration-300"
-                                    style={{ width: `${getListCompletion(tasksList.tasks)}%` }}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-xl font-semibold text-white flex items-center gap-2">
-                                {tasksList.title}
-                            </span>
-                            <div className="flex items-center">
-                                <span
-                                    onClick={() => showAddTaskForm(tasksList.id)}
-                                    className="inline-flex items-center gap-1 text-blue-400 cursor-pointer hover:text-blue-300 text-sm font-medium px-2 py-1 rounded transition-all duration-150"
-                                >
-                                    <ListPlus size={18} /> Add Task
-                                </span>
-                                {/* List Menu */}
-                                <Popover>
-                                    <PopoverTrigger>
-                                        <EllipsisVertical size={18} className="cursor-pointer" />
-                                    </PopoverTrigger>
-                                    <PopoverContent className="bg-neutral-800 text-white border border-neutral-700">
-                                        <ul>
-                                            {/* Reset progress */}
-                                            <li onClick={() => { resetProgress(tasksList.id, tasksList.tasks) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
-                                                <CircleDashed size={16} /> Reset progress
-                                            </li>
-                                            {/* Edit list name */}
-                                            <AlertDialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-                                                <AlertDialogTrigger className="w-full">
-                                                    <li className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
-                                                        <SquarePen size={16} /> Edit list name
-                                                    </li>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700 w-full max-w-4xl" style={{ maxWidth: '70vw' }}>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle className="flex items-center gap-2"><SquarePen size={16} /> Edit list name</AlertDialogTitle>
-                                                        <EditTasksListForm />
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={(e) => { e.preventDefault(); handleEditList(tasksList.id); }} className="cursor-pointer bg-white text-black">Edit</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            {/* Delete list */}
-                                            <AlertDialog>
-                                                <AlertDialogTrigger className="w-full">
-                                                    <li className="cursor-pointer flex items-center gap-2 text-red-700 hover:bg-red-400 px-2 py-1 rounded">
-                                                        <Trash2 size={16} /> Delete list
-                                                    </li>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700">
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This action cannot be undone. This will permanently delete your list
-                                                            and remove it's data from our servers.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => { deleteTasksList(tasksList.id) }} className="cursor-pointer bg-white text-black">Continue</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </ul>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </div>
-                        <AddTaskForm
-                            userId={userId}
-                            tasksListId={tasksList.id}
-                            visible={addTaskFormVisibleId === tasksList.id}
-                            onTaskCreated={handleTasksUpdate}
-                            onClose={() => setAddTaskFormVisibleId(null)}
-                            currentTaskCount={tasksList.tasks.length}
-                        />
-                        {/* Tasks  */}
-                        <ul className="divide-y divide-neutral-700 mt-4">
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragEnd={(event) => handleDragEnd(event, tasksList.id)}
-                            >
-                                <SortableContext
-                                    items={tasksList.tasks.map(task => task.id)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    {tasksList.tasks.length === 0 && (
-                                        <li className="text-neutral-400 text-sm py-4 text-center">No tasks in this list yet.</li>
-                                    )}
-                                    {tasksList.tasks.map((task) => (
-                                        <SortableTask key={task.id} task={task} tasksListId={tasksList.id} />
-                                    ))}
-                                </SortableContext>
-                            </DndContext>
-                        </ul>
-                    </li>
-                ))}
-            </ul>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleListDragEnd}
+            >
+                <SortableContext
+                    items={tasksLists.map(list => list.id)}
+                    strategy={verticalListSortingStrategy}
+                >
+                    <ul className={`flex gap-8 w-full ${tasksLists.length > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} pb-4 scrollbar-thin scrollbar-thumb-neutral-500 scrollbar-track-neutral-800 hover:scrollbar-thumb-neutral-400`}>
+                        {tasksLists.map((tasksList) => (
+                            <SortableList key={tasksList.id} tasksList={tasksList} />
+                        ))}
+                    </ul>
+                </SortableContext>
+            </DndContext>
         </div>
     );
 }

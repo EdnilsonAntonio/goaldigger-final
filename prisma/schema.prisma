@@ -115,6 +115,7 @@ model TasksList {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   title     String
+  order     Int      @default(0)
   tasks     Task[]
 
   completion Float   @default(0)
