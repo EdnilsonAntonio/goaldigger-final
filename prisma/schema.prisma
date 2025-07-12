@@ -89,6 +89,8 @@ model Task {
   tasksListId    String
   tasksList      TasksList   @relation(fields: [tasksListId], references: [id], onDelete: Cascade)
 
+  order          Int          @default(0)
+
   repeat         Boolean      @default(false)
   repeatInterval Int?         
   repeatUnit     RepeatUnit?  

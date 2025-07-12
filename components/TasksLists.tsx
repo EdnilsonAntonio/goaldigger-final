@@ -1,9 +1,28 @@
 "use client";
 
 import React from "react";
-import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed } from "lucide-react";
+import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed, GripVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddTaskForm from "./AddTaskForm";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
     Popover,
     PopoverContent,
@@ -62,6 +81,159 @@ export default function TasksLists({ userId }: { userId: string }) {
         setTasksUpdated(prev => !prev);
     };
 
+    // DnD sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    // Handle drag end for tasks within a list
+    const handleDragEnd = async (event: DragEndEvent, tasksListId: string) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            setTasksLists((prevLists) => {
+                return prevLists.map((list) => {
+                    if (list.id === tasksListId) {
+                        const oldIndex = list.tasks.findIndex((task) => task.id === active.id);
+                        const newIndex = list.tasks.findIndex((task) => task.id === over?.id);
+
+                        const newTasks = arrayMove(list.tasks, oldIndex, newIndex);
+
+                        // Save the new order to the database
+                        const taskOrders = newTasks.map((task, index) => ({
+                            taskId: task.id,
+                            order: index
+                        }));
+
+                        // Update the database
+                        fetch("/api/tasks", {
+                            method: "PATCH",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ tasksListId, taskOrders }),
+                        }).catch((error) => {
+                            console.error("Error updating task order:", error);
+                        });
+
+                        return {
+                            ...list,
+                            tasks: newTasks,
+                        };
+                    }
+                    return list;
+                });
+            });
+        }
+    };
+
+    // Sortable Task Component
+    const SortableTask = ({ task, tasksListId }: { task: Task; tasksListId: string }) => {
+        const {
+            attributes,
+            listeners,
+            setNodeRef,
+            transform,
+            transition,
+            isDragging,
+        } = useSortable({ id: task.id });
+
+        const style = {
+            transform: CSS.Transform.toString(transform),
+            transition,
+            opacity: isDragging ? 0.5 : 1,
+        };
+
+        return (
+            <li
+                ref={setNodeRef}
+                style={style}
+                className="flex flex-col py-3 group hover:bg-neutral-800/70 rounded transition-all duration-150 px-2"
+            >
+                {/* Main content */}
+                <div className="flex items-center justify-between w-full">
+                    <span className="flex items-center gap-2">
+                        {/* Drag Handle */}
+                        <div
+                            {...attributes}
+                            {...listeners}
+                            className="cursor-grab active:cursor-grabbing p-1 hover:bg-neutral-700/50 rounded transition-colors duration-150"
+                        >
+                            <GripVertical size={16} className="text-neutral-400" />
+                        </div>
+                        <button
+                            onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                            className="focus:outline-none"
+                            aria-label={expandedTaskId === task.id ? 'Collapse' : 'Expand'}
+                        >
+                            {expandedTaskId === task.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+                        {getTaskState(task.id, task.state)}
+                        {getTaskTitle(task)}
+                        {getTaskPriority(task.priority)}
+                        {getDueStatus(task.endDate ?? null, task.state)}
+                    </span>
+                    {/* Action buttons */}
+                    <span className="flex items-center gap-2 opacity-70 group-hover:opacity-100 transition-all duration-150">
+                        <AlertDialog open={editTaskDialogOpen === task.id} onOpenChange={(open) => setEditTaskDialogOpen(open ? task.id : null)}>
+                            <AlertDialogTrigger asChild>
+                                <SquarePen size={16} className="cursor-pointer hover:text-blue-400" />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700 w-full" style={{ maxWidth: '50vw' }}>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Edit task</AlertDialogTitle>
+                                </AlertDialogHeader>
+                                <EditTaskForm
+                                    taskId={task.id} title={task.title} description={task.description} state={task.state}
+                                    repeat={task.repeat}
+                                    repeatInterval={task.repeatInterval}
+                                    repeatUnit={task.repeatUnit}
+                                    repeatDays={task.repeatDays}
+                                    occurancy={task.occurancy}
+                                    priority={task.priority}
+                                    startDate={task.startDate ? new Date(task.startDate) : null}
+                                    endDate={task.endDate ? new Date(task.endDate) : null}
+                                    onClose={() => setEditTaskDialogOpen(null)}
+                                    onTaskUpdated={() => {
+                                        handleTasksUpdate();
+                                        setEditTaskDialogOpen(null);
+                                    }}
+                                />
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        <Trash2
+                            className="cursor-pointer hover:text-red-500"
+                            size={16}
+                            onClick={() => handleDeleteTask(task.id)}
+                        />
+                    </span>
+                </div>
+                {/* Expanded content */}
+                {expandedTaskId === task.id && (
+                    <div className="mt-2 ml-8 flex flex-col gap-2">
+                        {getTaskDescription(task)}
+                        <div className="flex flex-wrap gap-2 mt-1">
+                            {task.startDate && (
+                                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                    Start: {formatDate(task.startDate)}
+                                </span>
+                            )}
+                            {task.endDate && (
+                                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                    End: {formatDate(task.endDate)}
+                                </span>
+                            )}
+                            {getTaskRepeat(task)}
+                        </div>
+                    </div>
+                )}
+            </li>
+        );
+    };
+
     interface TasksList {
         id: string;
         title: string;
@@ -76,6 +248,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         description?: string;
         priority?: string;
         occurancy: number;
+        order: number;
         startDate?: string;
         endDate?: string;
         repeat?: boolean;
@@ -608,84 +781,27 @@ export default function TasksLists({ userId }: { userId: string }) {
                             visible={addTaskFormVisibleId === tasksList.id}
                             onTaskCreated={handleTasksUpdate}
                             onClose={() => setAddTaskFormVisibleId(null)}
+                            currentTaskCount={tasksList.tasks.length}
                         />
                         {/* Tasks  */}
                         <ul className="divide-y divide-neutral-700 mt-4">
-                            {tasksList.tasks.length === 0 && (
-                                <li className="text-neutral-400 text-sm py-4 text-center">No tasks in this list yet.</li>
-                            )}
-                            {tasksList.tasks.map((task) => (
-                                <li
-                                    key={task.id}
-                                    className="flex flex-col py-3 group hover:bg-neutral-800/70 rounded transition-all duration-150 px-2"
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={(event) => handleDragEnd(event, tasksList.id)}
+                            >
+                                <SortableContext
+                                    items={tasksList.tasks.map(task => task.id)}
+                                    strategy={verticalListSortingStrategy}
                                 >
-                                    {/* Main content */}
-                                    <div className="flex items-center justify-between w-full">
-                                        <span className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                                                className="focus:outline-none"
-                                                aria-label={expandedTaskId === task.id ? 'Collapse' : 'Expand'}
-                                            >
-                                                {expandedTaskId === task.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                            </button>
-                                            {getTaskState(task.id, task.state)}
-                                            {getTaskTitle(task)}
-                                            {getTaskPriority(task.priority)}
-                                            {getDueStatus(task.endDate ?? null, task.state)}
-                                        </span>
-                                        {/* Action buttons */}
-                                        <span className="flex items-center gap-2 opacity-70 group-hover:opacity-100 transition-all duration-150">
-                                            <AlertDialog open={editTaskDialogOpen === task.id} onOpenChange={(open) => setEditTaskDialogOpen(open ? task.id : null)}>
-                                                <AlertDialogTrigger asChild>
-                                                    <SquarePen size={16} className="cursor-pointer hover:text-blue-400" />
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-neutral-800 text-white border border-neutral-700 w-full" style={{ maxWidth: '50vw' }}>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Edit task</AlertDialogTitle>
-                                                    </AlertDialogHeader>
-                                                    <EditTaskForm
-                                                        taskId={task.id} title={task.title} description={task.description} state={task.state}
-                                                        repeat={task.repeat}
-                                                        repeatInterval={task.repeatInterval}
-                                                        repeatUnit={task.repeatUnit}
-                                                        repeatDays={task.repeatDays}
-                                                        occurancy={task.occurancy}
-                                                        priority={task.priority}
-                                                        startDate={task.startDate ? new Date(task.startDate) : null}
-                                                        endDate={task.endDate ? new Date(task.endDate) : null}
-                                                        onClose={() => setEditTaskDialogOpen(null)}
-                                                        onTaskUpdated={() => {
-                                                            handleTasksUpdate();
-                                                            setEditTaskDialogOpen(null);
-                                                        }}
-                                                    />
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            <Trash2 className="cursor-pointer hover:text-red-500" size={16} onClick={() => handleDeleteTask(task.id)} />
-                                        </span>
-                                    </div>
-                                    {/* Expanded content */}
-                                    {expandedTaskId === task.id && (
-                                        <div className="mt-2 ml-8 flex flex-col gap-2">
-                                            {getTaskDescription(task)}
-                                            <div className="flex flex-wrap gap-2 mt-1">
-                                                {task.startDate && (
-                                                    <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
-                                                        Start: {formatDate(task.startDate)}
-                                                    </span>
-                                                )}
-                                                {task.endDate && (
-                                                    <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
-                                                        End: {formatDate(task.endDate)}
-                                                    </span>
-                                                )}
-                                                {getTaskRepeat(task)}
-                                            </div>
-                                        </div>
+                                    {tasksList.tasks.length === 0 && (
+                                        <li className="text-neutral-400 text-sm py-4 text-center">No tasks in this list yet.</li>
                                     )}
-                                </li>
-                            ))}
+                                    {tasksList.tasks.map((task) => (
+                                        <SortableTask key={task.id} task={task} tasksListId={tasksList.id} />
+                                    ))}
+                                </SortableContext>
+                            </DndContext>
                         </ul>
                     </li>
                 ))}

@@ -19,10 +19,10 @@ type AddTaskFormProps = {
     visible: boolean;
     onTaskCreated?: () => void;
     onClose?: () => void;
-
+    currentTaskCount?: number;
 }
 
-export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreated, onClose }: AddTaskFormProps) {
+export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreated, onClose, currentTaskCount = 0 }: AddTaskFormProps) {
     // Estados para controlar a abertura dos campos de data, repetição e prioridade
     const [startDateOpen, setStartDateOpen] = useState(false);
     const [endDateOpen, setEndDateOpen] = useState(false);
@@ -107,6 +107,7 @@ export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreate
             userId,
             tasksListId,
             title,
+            order: currentTaskCount,
         };
         if (description) body.description = description;
         if (repeat) body.repeat = repeat;

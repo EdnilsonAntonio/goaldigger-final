@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
     title,
     description,
     tasksListId,
+    order,
     repeat,
     repeatInterval,
     repeatUnit,
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       data: {
         title,
         description,
+        order: order || 0,
         repeat,
         repeatInterval,
         repeatUnit,
@@ -161,5 +163,43 @@ export async function DELETE(req: NextRequest) {
       { message: "Task deleted successfully" },
       { status: 200 }
     );
-  } catch (error) {}
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { message: "Error deleting the task" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const { tasksListId, taskOrders } = await req.json();
+
+  if (!tasksListId || !taskOrders || !Array.isArray(taskOrders)) {
+    return NextResponse.json(
+      { message: "tasksListId and taskOrders array are required!" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Update each task with its new order
+    for (const { taskId, order } of taskOrders) {
+      await prisma.task.update({
+        where: { id: taskId },
+        data: { order },
+      });
+    }
+
+    return NextResponse.json(
+      { message: "Task order updated successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { message: "Error updating task order" },
+      { status: 500 }
+    );
+  }
 }

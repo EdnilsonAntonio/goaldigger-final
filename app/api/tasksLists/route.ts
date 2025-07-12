@@ -43,7 +43,11 @@ export async function GET(req: NextRequest) {
         userId: userId,
       },
       include: {
-        tasks: true,
+        tasks: {
+          orderBy: {
+            order: "asc",
+          },
+        },
       },
       orderBy: {
         createdAt: "asc",
@@ -88,7 +92,7 @@ export async function PUT(req: NextRequest) {
 
     await prisma.tasksList.update({
       where: { id: tasksListId },
-      data: { title: title, completion: completion }
+      data: { title: title, completion: completion },
     });
 
     return NextResponse.json(
