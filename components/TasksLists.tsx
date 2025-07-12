@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddTaskForm from "./AddTaskForm";
@@ -85,7 +86,7 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     // --- TASKS LISTS ---
 
-    // Fetch tasks lists
+    // Obter as listas de tarefas
     const fetchTasksLists = async () => {
         const response = await fetch(`/api/tasksLists`, {
             method: "GET",
@@ -98,7 +99,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         setTasksLists(data);
     };
 
-    // Add tasks list
+    // Adicionar uma lista de tarefa
     const handleAddList = async (e: React.FormEvent) => {
         e.preventDefault();
         const title = tasksListTitle.current?.value || "";
@@ -129,7 +130,7 @@ export default function TasksLists({ userId }: { userId: string }) {
             alert("Error creating the tasks list")
         }
     }
-    // Edit tasks list
+    // Editar uma lista de tarefa
     const handleEditList = async (tasksListId: string) => {
         const title = tasksListNewTitle.current?.value || "";
 
@@ -156,7 +157,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     }
 
-    // Delete tasks list
+    // Apagar uma lista de tarefa
     const deleteTasksList = async (tasksListId: string) => {
         if (!tasksListId) {
             alert("task list id is required");
@@ -179,7 +180,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     }
 
-    // Reset progress (completion)
+    // Resetar o progresso de uma lista de tarefa
     const resetProgress = async (tasksListId: string, tasks: Task[]) => {
         if (!tasksListId) {
             alert("tasks list id is required!");
@@ -208,7 +209,7 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     // --- TASKS ---
 
-    // Delete task
+    // Apagar uma tarefa
     const handleDeleteTask = async (taskId: string) => {
         if (!taskId) {
             alert("taskId is required");
@@ -231,7 +232,7 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     }
 
-    // Change task state
+    // Mudar o estado de uma tarefa
     const handleChangeTaskState = async (taskId: string, state: "done" | "undone") => {
         if (!taskId) {
             alert("taskId is required");
@@ -255,17 +256,17 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     }
 
-    // Change AddTaskForm visibility
+    // Mostrar o formulário de adição de tarefa
     const showAddTaskForm = (listId: string) => {
         setAddTaskFormVisibleId(prev => prev === listId ? null : listId);
     };
 
-    // Change the AddTasksList visibility
+    // Mostrar o formulário de adição de lista de tarefas
     const showAddTasksListForm = () => {
         showAddTasksList ? setShowAddtasksList(false) : setShowAddtasksList(true);
     }
 
-
+    // Formulário de adição de listas de tarefas
     const AddTasksListForm = () => {
         return (
             <form onSubmit={handleAddList} className={`mt-4 mb-8 w-full max-w-2xl ${!showAddTasksList ? "hidden" : ""} bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200`}>
@@ -285,6 +286,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         )
     }
 
+    // Formulário de edição de listas de tarefas
     const EditTasksListForm = () => {
         return (
             <div className="mt-4 mb-8 w-full max-w-2xl bg-neutral-800/80 border border-neutral-700 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center gap-4 transition-all duration-200">
@@ -299,6 +301,28 @@ export default function TasksLists({ userId }: { userId: string }) {
     }
 
     // --- OBTER INFORMAÇÕES DA TASK FORA DA RENDERIZAÇÃO ---
+
+    // Obter o título da tarefa
+    function getTaskTitle(task: Task) {
+        if (!task.title) return null;
+
+        return (
+            <span className={task.state === "done" ? "line-through text-neutral-400" : "text-white"}>
+                {task.title}
+            </span>
+        )
+    }
+
+    // Obter a descrição da tarefa
+    function getTaskDescription(task: Task) {
+        if (!task.description) return null;
+
+        return (
+            <div className="text-base text-neutral-200 whitespace-pre-line">
+                {task.description}
+            </div>
+        )
+    }
 
     // Obter o estado da tarefa
     function getTaskState(taskId: string, state: string,): any {
@@ -318,6 +342,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     }
 
+    // Obter a prioridade da tarefa
     function getTaskPriority(priority?: string) {
         if (priority === "none" || null) return null;
 
@@ -344,40 +369,127 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
     }
 
-    function getTaskStartDate(startDate?: string) {
-        if (!startDate) return null;
-        return (
-            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-green-800/60 text-green-200 border border-green-600">
-                Start: {new Date(startDate).toLocaleDateString()}
-            </span>
-        );
-    }
-
-    function getTaskEndDate(endDate?: string) {
-        if (!endDate) return null;
-        return (
-            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-purple-800/60 text-purple-200 border border-purple-600">
-                End: {new Date(endDate).toLocaleDateString()}
-            </span>
-        );
-    }
-
+    // Obter as repetições da tarefa
     function getTaskRepeat(task: Task) {
         if (!task.repeat) return null;
+
+        let repeatText = "";
+
+        if (task.repeatUnit === "week") {
+            repeatText = getWeeklyRepeatDescription(task.repeatDays);
+        } else if (task.repeatInterval && task.repeatUnit) {
+            const interval = task.repeatInterval > 1 ? `${task.repeatInterval} ${task.repeatUnit}s` : task.repeatUnit;
+            repeatText = `Repeats every ${interval}`;
+        } else {
+            repeatText = "Repeats";
+        }
+
         return (
-            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-yellow-800/60 text-yellow-200 border border-yellow-600">
-                Repeats: every {task.repeatInterval || 1} {task.repeatUnit}
-                {task.repeatUnit === "week" && task.repeatDays && task.repeatDays.length > 0
-                    ? ` on ${task.repeatDays.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`
-                    : ""}
+            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                {repeatText}
             </span>
         );
     }
 
+    // Obter o progresso da lista
     function getListCompletion(tasks: Task[]) {
         if (!tasks.length) return 0;
         const done = tasks.filter(t => t.state === "done").length;
         return Math.round((done / tasks.length) * 100);
+    }
+
+    // Verificar se a tarefa está vencida
+    function getDueStatus(endDateString: string | null, state: string): React.ReactElement | null {
+        if (!endDateString) return null;
+
+        const endDate = new Date(endDateString);
+        const today = new Date();
+
+        const diffTime = endDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays < 0 && state !== "done") {
+            return (
+                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-800/60 text-red-200 border border-red-600">
+                    Overdue by {Math.abs(diffDays)} day{Math.abs(diffDays) > 1 ? "s" : ""}
+                </span>
+            );
+        } else if (diffDays < 7) {
+            return (
+                <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-orange-800/60 text-orange-200 border border-orange-600">
+                    Due in {diffDays} day{diffDays > 1 ? "s" : ""}
+                </span>
+            );
+        }
+
+        return null;
+    }
+
+    // Formatação de data da tarefa
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(now.getDate() + 1);
+
+        // Verifica se a data é hoje
+        const isToday = date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+
+        // Verifica se a data é amanhã
+        const isTomorrow = date.getDate() === tomorrow.getDate() &&
+            date.getMonth() === tomorrow.getMonth() &&
+            date.getFullYear() === tomorrow.getFullYear();
+
+        // Se a data for hoje, retorna "Today"
+        if (isToday) return "Today";
+
+        // Se a data for amanhã, retorna "Tomorrow"
+        if (isTomorrow) return "Tomorrow";
+
+        // Se a data for no ano atual, retorna o dia da semana, dia e mês
+        if (date.getFullYear() === now.getFullYear()) {
+            const weekday = date.toLocaleDateString("en-US", { weekday: "short" }).toLowerCase();
+            const day = String(date.getDate()).padStart(2, "0");
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            return `${weekday}, ${day}/${month}`;
+        }
+        return date.toLocaleDateString("en-US");
+    };
+
+    // Verifica se a tarefa é repetida nos dias úteis ou finais de semana e retorna a descrição
+    function getWeeklyRepeatDescription(repeatDays: string[] | undefined) {
+        // Se não houver dias de repetição, retorna "Repeats every week"
+        if (!repeatDays || repeatDays.length === 0) return "Repeats every week";
+
+        // Define os dias da semana e os fins de semana
+        const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+        const weekends = ["saturday", "sunday"];
+        const allDays = [...weekdays, ...weekends];
+
+        // Ordena os dias de repetição
+        const sorted = [...repeatDays].sort((a, b) => allDays.indexOf(a) - allDays.indexOf(b));
+
+        // Se os dias de repetição forem todos os dias da semana, retorna "Repeats every weekday"
+        if (sorted.length === 5 && weekdays.every(d => sorted.includes(d))) {
+            return "Repeats every weekday";
+        }
+
+        // Se os dias de repetição forem todos os fins de semana, retorna "Repeats every weekend"
+        if (sorted.length === 2 && weekends.every(d => sorted.includes(d))) {
+            return "Repeats every weekend";
+        }
+
+        // Se os dias de repetição forem um conjunto personalizado, retorna a descrição dos dias de repetição
+        return (
+            "Repeats every " +
+            sorted
+                .map(
+                    (d) => d.charAt(0).toUpperCase() + d.slice(1)
+                )
+                .join(", ")
+        );
     }
 
     useEffect(() => {
@@ -518,8 +630,9 @@ export default function TasksLists({ userId }: { userId: string }) {
                                                 {expandedTaskId === task.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                             </button>
                                             {getTaskState(task.id, task.state)}
-                                            <span className={task.state === "done" ? "line-through text-neutral-400" : "text-white"}>{task.title}</span>
+                                            {getTaskTitle(task)}
                                             {getTaskPriority(task.priority)}
+                                            {getDueStatus(task.endDate ?? null, task.state)}
                                         </span>
                                         {/* Action buttons */}
                                         <span className="flex items-center gap-2 opacity-70 group-hover:opacity-100 transition-all duration-150">
@@ -555,14 +668,18 @@ export default function TasksLists({ userId }: { userId: string }) {
                                     {/* Expanded content */}
                                     {expandedTaskId === task.id && (
                                         <div className="mt-2 ml-8 flex flex-col gap-2">
-                                            {task.description && (
-                                                <div className="text-base text-neutral-200 whitespace-pre-line">
-                                                    {task.description}
-                                                </div>
-                                            )}
+                                            {getTaskDescription(task)}
                                             <div className="flex flex-wrap gap-2 mt-1">
-                                                {getTaskStartDate(task.startDate)}
-                                                {getTaskEndDate(task.endDate)}
+                                                {task.startDate && (
+                                                    <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                                        Start: {formatDate(task.startDate)}
+                                                    </span>
+                                                )}
+                                                {task.endDate && (
+                                                    <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-neutral-700/60 text-neutral-300 border border-neutral-600">
+                                                        End: {formatDate(task.endDate)}
+                                                    </span>
+                                                )}
                                                 {getTaskRepeat(task)}
                                             </div>
                                         </div>
