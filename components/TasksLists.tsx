@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed, GripVertical } from "lucide-react";
+import { CheckCircle, Circle, ClipboardPlus, ListPlus, SquarePen, Trash2, ChevronDown, ChevronUp, Wind, CloudHail, CloudLightning, EllipsisVertical, CircleDashed, GripVertical, ArrowDownUp, CalendarArrowUp, CalendarArrowDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddTaskForm from "./AddTaskForm";
 import { toast } from "sonner";
@@ -368,6 +368,18 @@ export default function TasksLists({ userId }: { userId: string }) {
                                     <li onClick={() => { resetProgress(tasksList.id, tasksList.tasks) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
                                         <CircleDashed size={16} /> Reset progress
                                     </li>
+                                    {/* Sort by prioriry */}
+                                    <li onClick={() => { sortTasksByPriority(tasksList.id) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
+                                        <ArrowDownUp size={16} /> Sort by priority
+                                    </li>
+                                    {/* Sort by end date */}
+                                    <li onClick={() => { sortTasksByEndDate(tasksList.id) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
+                                        <CalendarArrowUp size={16} /> Sort by end date
+                                    </li>
+                                    {/* Sort by start date */}
+                                    <li onClick={() => { sortTasksByStartDate(tasksList.id) }} className="cursor-pointer flex items-center gap-2 hover:bg-neutral-700 px-2 py-1 rounded">
+                                        <CalendarArrowDown size={16} /> Sort by start date
+                                    </li>
                                     {/* Edit list name */}
                                     <AlertDialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                                         <AlertDialogTrigger className="w-full">
@@ -591,6 +603,89 @@ export default function TasksLists({ userId }: { userId: string }) {
             toast.error("Error resetting the list progress");
         }
     }
+
+    // Sort tasks by priority
+    const sortTasksByPriority = async (tasksListId: string) => {
+        setTasksLists((prevLists) => {
+            return prevLists.map((list) => {
+                if (list.id === tasksListId) {
+                    // Sort: high > medium > low > none/null/undefined
+                    const priorityOrder = { high: 0, medium: 1, low: 2 };
+                    const sortedTasks = [...list.tasks].sort((a, b) => {
+                        const aVal = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
+                        const bVal = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
+                        return aVal - bVal;
+                    });
+                    // Update order in backend
+                    const taskOrders = sortedTasks.map((task, index) => ({
+                        taskId: task.id,
+                        order: index
+                    }));
+                    fetch("/api/tasks", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tasksListId, taskOrders }),
+                    }).catch(console.error);
+                    return { ...list, tasks: sortedTasks };
+                }
+                return list;
+            });
+        });
+    };
+
+    // Sort tasks by end date (soonest first, nulls last)
+    const sortTasksByEndDate = async (tasksListId: string) => {
+        setTasksLists((prevLists) => {
+            return prevLists.map((list) => {
+                if (list.id === tasksListId) {
+                    const sortedTasks = [...list.tasks].sort((a, b) => {
+                        if (!a.endDate && !b.endDate) return 0;
+                        if (!a.endDate) return 1;
+                        if (!b.endDate) return -1;
+                        return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+                    });
+                    const taskOrders = sortedTasks.map((task, index) => ({
+                        taskId: task.id,
+                        order: index
+                    }));
+                    fetch("/api/tasks", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tasksListId, taskOrders }),
+                    }).catch(console.error);
+                    return { ...list, tasks: sortedTasks };
+                }
+                return list;
+            });
+        });
+    };
+
+    // Sort tasks by start date (soonest first, nulls last)
+    const sortTasksByStartDate = async (tasksListId: string) => {
+        setTasksLists((prevLists) => {
+            return prevLists.map((list) => {
+                if (list.id === tasksListId) {
+                    const sortedTasks = [...list.tasks].sort((a, b) => {
+                        if (!a.startDate && !b.startDate) return 0;
+                        if (!a.startDate) return 1;
+                        if (!b.startDate) return -1;
+                        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+                    });
+                    const taskOrders = sortedTasks.map((task, index) => ({
+                        taskId: task.id,
+                        order: index
+                    }));
+                    fetch("/api/tasks", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tasksListId, taskOrders }),
+                    }).catch(console.error);
+                    return { ...list, tasks: sortedTasks };
+                }
+                return list;
+            });
+        });
+    };
 
     // --- TASKS ---
 
