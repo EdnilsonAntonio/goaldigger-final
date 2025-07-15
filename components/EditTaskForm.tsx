@@ -24,7 +24,7 @@ type EditTaskFormProps = {
     repeatInterval?: number;
     repeatUnit?: string;
     repeatDays?: string[];
-    occurancy?: number;
+    occurences?: number;
     priority?: string;
     startDate: Date | null;
     endDate?: Date | null;
@@ -42,7 +42,7 @@ export default function EditTaskForm({
     repeatInterval,
     repeatUnit,
     repeatDays: initialRepeatDays = [],
-    occurancy,
+    occurences,
     priority = "none",
     startDate: initialStartDate,
     endDate: initialEndDate,
@@ -58,6 +58,7 @@ export default function EditTaskForm({
     const repeatIntervalRef = useRef<HTMLInputElement>(null);
     const repeatUnitRef = useRef<HTMLSelectElement>(null);
     const prioritySelectRef = useRef<HTMLSelectElement>(null);
+    const occurencesRef = useRef<HTMLInputElement>(null);
 
     // Estados para controlar a exibição de datas e repetição
     const [showDates, setShowDates] = useState(!!initialStartDate || !!initialEndDate);
@@ -103,6 +104,12 @@ export default function EditTaskForm({
             return;
         }
 
+        // Novo: obter occurences
+        let newOccurences = occurences || 1;
+        if (showRepeat) {
+            newOccurences = Number((occurencesRef.current?.value) || 1);
+        }
+
         try {
             const response = await fetch("/api/tasks", {
                 method: "PUT",
@@ -117,7 +124,7 @@ export default function EditTaskForm({
                     repeat: updatedRepeat,
                     repeatInterval: updatedRepeatInterval,
                     repeatUnit: updatedRepeatUnit,
-                    occurences: Number(occurancy),
+                    occurences: newOccurences,
                     priority: updatedPriority,
                     startDate: showDates && startDate ? startDate.toISOString() : null,
                     endDate: showDates && endDate ? endDate.toISOString() : null,
@@ -364,6 +371,18 @@ export default function EditTaskForm({
                                     ))}
                                 </div>
                             )}
+                            {/* Campo de ocorrências */}
+                            <div className="flex items-center gap-2 mt-2">
+                                <Label htmlFor="occurences" className="text-sm text-neutral-300">Occurrences</Label>
+                                <input
+                                    id="occurences"
+                                    type="number"
+                                    min={1}
+                                    defaultValue={occurences || 1}
+                                    ref={occurencesRef}
+                                    className="w-16 px-2 py-1 bg-neutral-700/50 border border-neutral-600/50 rounded text-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

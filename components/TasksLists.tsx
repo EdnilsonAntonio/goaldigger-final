@@ -226,7 +226,7 @@ export default function TasksLists({ userId }: { userId: string }) {
                                     repeatInterval={task.repeatInterval}
                                     repeatUnit={task.repeatUnit}
                                     repeatDays={task.repeatDays}
-                                    occurancy={task.occurancy}
+                                    occurences={task.occurences}
                                     priority={task.priority}
                                     startDate={task.startDate ? new Date(task.startDate) : null}
                                     endDate={task.endDate ? new Date(task.endDate) : null}
@@ -471,7 +471,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         state: "done" | "undone";
         description?: string;
         priority?: string;
-        occurancy: number;
+        occurences: number;
         order: number;
         startDate?: string;
         endDate?: string;
@@ -975,13 +975,47 @@ export default function TasksLists({ userId }: { userId: string }) {
         );
     }
 
+    // Atualiza tarefas repetitivas ao abrir o app
+    const updateRepeatingTasks = async (lists: TasksList[], overrideToday?: Date) => {
+        const today = overrideToday || new Date();
+        for (const list of lists) {
+            for (const task of list.tasks) {
+                if (task.repeat && (task.occurences === undefined || task.occurences === null || task.occurences > 0) && task.state === "done") {
+                    let referenceDate: Date | null = null;
+                    if (task.endDate) {
+                        referenceDate = new Date(task.endDate);
+                    } else if (task.startDate) {
+                        referenceDate = new Date(task.startDate);
+                    }
+                    if (referenceDate && today >= referenceDate) {
+                        // Atualiza estado e occurences
+                        await fetch("/api/tasks", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                taskId: task.id,
+                                state: "undone",
+                                occurences: (task.occurences !== undefined && task.occurences !== null)
+                                    ? task.occurences - 1
+                                    : undefined
+                            })
+                        });
+                    }
+                }
+            }
+        }
+    };
+
     useEffect(() => {
         if (!userId) {
             toast.error("User ID is required");
             return;
         }
 
-        fetchTasksLists();
+        fetchTasksLists().then(() => {
+            // Após buscar as listas, atualiza tarefas repetitivas
+            updateRepeatingTasks(tasksLists);
+        });
     }, [userId, tasksUpdated]);
 
 

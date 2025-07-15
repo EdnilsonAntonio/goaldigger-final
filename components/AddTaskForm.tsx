@@ -86,6 +86,7 @@ export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreate
     const repeatUnitRef = useRef<HTMLSelectElement>(null);
     const priorityRef = useRef<HTMLInputElement>(null);
     const prioritySelectRef = useRef<HTMLSelectElement>(null);
+    const occurencesRef = useRef<HTMLInputElement>(null);
 
     // Função para lidar com o envio do formulário
     const handleSubmit = async (e: React.FormEvent) => {
@@ -125,6 +126,19 @@ export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreate
         if (priority) body.priority = priority;
         if (startDate) body.startDate = startDate.toISOString();
         if (endDate) body.endDate = endDate.toISOString();
+
+        // Novo: obter occurences
+        let occurences: number | undefined = undefined;
+        if (repeat) {
+            const val = occurencesRef.current?.value;
+            if (val && val !== "") {
+                occurences = Number(val);
+                if (!isNaN(occurences) && occurences > 0) {
+                    body.occurences = occurences;
+                }
+            }
+            // Se não preencher, não envia occurences (repetição infinita)
+        }
 
         // Tenta criar a tarefa
         try {
@@ -338,6 +352,18 @@ export default function AddTaskForm({ userId, tasksListId, visible, onTaskCreate
                                         ))}
                                     </div>
                                 )}
+                                {/* Campo de ocorrências */}
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Label htmlFor="occurences" className={`${finalFontSizes.subtitle} text-neutral-300`}>Occurrences</Label>
+                                    <input
+                                        id="occurences"
+                                        type="number"
+                                        min={1}
+                                        placeholder="(leave blank for infinite)"
+                                        ref={occurencesRef}
+                                        className={`w-16 px-2 py-1 bg-neutral-700/50 border border-neutral-600/50 rounded text-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${finalFontSizes.badge}`}
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>
