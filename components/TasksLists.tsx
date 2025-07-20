@@ -410,7 +410,7 @@ export default function TasksLists({ userId }: { userId: string }) {
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
                                                     This action cannot be undone. This will permanently delete your list
-                                                    and remove it's data from our servers.
+                                                    and remove it's tasks.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
