@@ -494,6 +494,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         });
         const data = await response.json();
         setTasksLists(data);
+        return data;
     };
 
     // Adicionar uma lista de tarefa
@@ -978,16 +979,33 @@ export default function TasksLists({ userId }: { userId: string }) {
     // Atualiza tarefas repetitivas ao abrir o app
     const updateRepeatingTasks = async (lists: TasksList[], overrideToday?: Date) => {
         const today = overrideToday || new Date();
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        
         for (const list of lists) {
             for (const task of list.tasks) {
                 if (task.repeat && (task.occurences === undefined || task.occurences === null || task.occurences > 0) && task.state === "done") {
-                    let referenceDate: Date | null = null;
-                    if (task.endDate) {
-                        referenceDate = new Date(task.endDate);
-                    } else if (task.startDate) {
-                        referenceDate = new Date(task.startDate);
+                    let shouldReset = false;
+                    
+                    // Para tarefas diárias, sempre resetar se estiver concluída
+                    if (task.repeatUnit === "day" && task.repeatInterval === 1) {
+                        shouldReset = true;
                     }
-                    if (referenceDate && today >= referenceDate) {
+                    // Para outras tarefas, verificar se a data de referência já passou
+                    else {
+                        let referenceDate: Date | null = null;
+                        if (task.endDate) {
+                            referenceDate = new Date(task.endDate);
+                        } else if (task.startDate) {
+                            referenceDate = new Date(task.startDate);
+                        }
+                        
+                        if (referenceDate && todayStart >= referenceDate) {
+                            shouldReset = true;
+                        }
+                    }
+                    
+                    if (shouldReset) {
                         // Atualiza estado e occurences
                         await fetch("/api/tasks", {
                             method: "PUT",
@@ -1012,9 +1030,9 @@ export default function TasksLists({ userId }: { userId: string }) {
             return;
         }
 
-        fetchTasksLists().then(() => {
+        fetchTasksLists().then((data) => {
             // Após buscar as listas, atualiza tarefas repetitivas
-            updateRepeatingTasks(tasksLists);
+            updateRepeatingTasks(data);
         });
     }, [userId, tasksUpdated]);
 
