@@ -1001,7 +1001,10 @@ export default function TasksLists({ userId }: { userId: string }) {
                         const interval = task.repeatInterval || 1;
                         const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
                         if (interval === 1) {
-                            shouldReset = true;
+                            // Só reseta se a última atualização foi em um dia anterior ao dia de hoje
+                            if (!lastReset || lastReset.setHours(0, 0, 0, 0) < todayStart.getTime()) {
+                                shouldReset = true;
+                            }
                         } else if (lastReset) {
                             const lastResetStart = new Date(lastReset);
                             lastResetStart.setHours(0, 0, 0, 0);
@@ -1010,7 +1013,6 @@ export default function TasksLists({ userId }: { userId: string }) {
                                 shouldReset = true;
                             }
                         } else {
-                            // Se não tem updatedAt, resetar por padrão
                             shouldReset = true;
                         }
                     }
@@ -1039,18 +1041,20 @@ export default function TasksLists({ userId }: { userId: string }) {
                     else if (task.repeatUnit === "month") {
                         const interval = task.repeatInterval || 1;
                         const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
-                        // Dia de referência: startDate, endDate ou updatedAt
+                        // Dia de referência: startDate, ou dia da criação da tarefa, ou 1
                         let refDay = 1;
                         if (task.startDate) refDay = new Date(task.startDate).getDate();
                         else if (task.endDate) refDay = new Date(task.endDate).getDate();
-                        else if (lastReset) refDay = new Date(lastReset).getDate();
                         // Descobrir o último dia do mês atual
                         const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
                         // Se hoje é o dia de referência OU hoje é o último dia do mês e o mês não tem o dia de referência
                         const isResetDay = (today.getDate() === refDay) || (today.getDate() === lastDayOfMonth && refDay > lastDayOfMonth);
                         if (isResetDay) {
                             if (interval === 1) {
-                                shouldReset = true;
+                                // Só reseta se não foi resetada neste mês
+                                if (!lastReset || lastReset.getMonth() !== today.getMonth() || lastReset.getFullYear() !== today.getFullYear()) {
+                                    shouldReset = true;
+                                }
                             } else if (lastReset) {
                                 // Zerar hora para ambos
                                 const lastResetStart = new Date(lastReset);
@@ -1118,10 +1122,21 @@ export default function TasksLists({ userId }: { userId: string }) {
         }
 
         fetchTasksLists().then((data) => {
-            // Após buscar as listas, atualiza tarefas repetitivas
-            updateRepeatingTasks(data);
+            setTasksLists(data);
+            // Só chama updateRepeatingTasks se for a primeira renderização do dia
+            const lastResetDate = typeof window !== 'undefined' ? localStorage.getItem('lastRepeatingTasksReset') : null;
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10); // yyyy-mm-dd
+            if (lastResetDate !== todayStr) {
+                updateRepeatingTasks(data).then(() => {
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('lastRepeatingTasksReset', todayStr);
+                    }
+                    fetchTasksLists(); // Atualiza listas após reset
+                });
+            }
         });
-    }, [userId, tasksUpdated]);
+    }, [userId]);
 
     return (
         <div className="flex flex-col items-center justify-center p-4 w-full">
