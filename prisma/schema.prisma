@@ -96,6 +96,7 @@ model Task {
   repeatUnit     RepeatUnit?  
   repeatDays     DayOfWeek[]  
   occurences     Int?         
+  resetDay       DateTime?
 
   priority       TaskPriority @default(none)
 

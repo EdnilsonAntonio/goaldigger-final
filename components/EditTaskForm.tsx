@@ -107,7 +107,7 @@ export default function EditTaskForm({
         // Novo: obter occurences
         let newOccurences = occurences || 1;
         if (showRepeat) {
-            newOccurences = Number((occurencesRef.current?.value) || 1);
+            newOccurences = Number((occurencesRef.current?.value) || null);
         }
 
         try {

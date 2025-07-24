@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import EditTaskForm from "./EditTaskForm";
+import { getNextResetDay } from "@/lib/utils";
 
 export function AlertDialogDemo() {
     return (
@@ -78,8 +79,9 @@ export default function TasksLists({ userId }: { userId: string }) {
     const tasksListTitle = useRef<HTMLInputElement>(null);
     const tasksListNewTitle = useRef<HTMLInputElement>(null);
 
-    const handleTasksUpdate = () => {
-        setTasksUpdated(prev => !prev);
+    // Atualizar listas de tarefas imediatamente após criar uma tarefa
+    const handleTasksUpdate = async () => {
+        await fetchTasksLists();
     };
 
     // DnD sensors
@@ -485,6 +487,7 @@ export default function TasksLists({ userId }: { userId: string }) {
         repeatUnit?: string;
         repeatDays?: string[];
         updatedAt?: string; // Added updatedAt field
+        resetDay?: string; // Added resetDay field
     }
 
     // --- TASKS LISTS ---
@@ -983,133 +986,46 @@ export default function TasksLists({ userId }: { userId: string }) {
         );
     }
 
-    // Atualiza tarefas repetitivas ao abrir o app
+    // Atualiza tarefas repetitivas ao abrir o app usando resetDay
     const updateRepeatingTasks = async (lists: TasksList[], overrideToday?: Date) => {
         const today = overrideToday || new Date();
-        const todayStart = new Date(today);
-        todayStart.setHours(0, 0, 0, 0);
-        const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-        const todayDayOfWeek = daysOfWeek[today.getDay()];
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.getFullYear() + '-' +
+            String(today.getMonth() + 1).padStart(2, '0') + '-' +
+            String(today.getDate()).padStart(2, '0');
 
         for (const list of lists) {
             for (const task of list.tasks) {
-                if (task.repeat && (task.occurences === undefined || task.occurences === null || task.occurences > 0) && task.state === "done") {
-                    let shouldReset = false;
-
-                    // Para tarefas diárias, resetar se passou o intervalo de dias desde o último reset/conclusão
-                    if (task.repeatUnit === "day") {
-                        const interval = task.repeatInterval || 1;
-                        const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
-                        if (interval === 1) {
-                            // Só reseta se a última atualização foi em um dia anterior ao dia de hoje
-                            if (!lastReset || lastReset.setHours(0, 0, 0, 0) < todayStart.getTime()) {
-                                shouldReset = true;
-                            }
-                        } else if (lastReset) {
-                            const lastResetStart = new Date(lastReset);
-                            lastResetStart.setHours(0, 0, 0, 0);
-                            const daysSinceLast = Math.floor((todayStart.getTime() - lastResetStart.getTime()) / (1000 * 60 * 60 * 24));
-                            if (daysSinceLast >= interval) {
-                                shouldReset = true;
-                            }
-                        } else {
-                            shouldReset = true;
-                        }
-                    }
-                    // Para tarefas semanais, resetar se hoje for um dos dias configurados e respeitando o intervalo
-                    else if (task.repeatUnit === "week" && Array.isArray(task.repeatDays) && task.repeatDays.length > 0) {
-                        if (task.repeatDays.includes(todayDayOfWeek)) {
-                            const interval = task.repeatInterval || 1;
-                            const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
-                            if (interval === 1) {
-                                shouldReset = true;
-                            } else if (lastReset) {
-                                const lastResetStart = new Date(lastReset);
-                                lastResetStart.setHours(0, 0, 0, 0);
-                                // Calcular diferença de semanas entre as datas zeradas
-                                const daysSinceLast = Math.floor((todayStart.getTime() - lastResetStart.getTime()) / (1000 * 60 * 60 * 24));
-                                const weeksSinceLast = Math.floor(daysSinceLast / 7);
-                                if (weeksSinceLast >= interval - 1) {
-                                    shouldReset = true;
-                                }
-                            } else {
-                                shouldReset = true;
-                            }
-                        }
-                    }
-                    // Para tarefas mensais, resetar se passou o intervalo de meses desde o último reset/conclusão
-                    else if (task.repeatUnit === "month") {
-                        const interval = task.repeatInterval || 1;
-                        const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
-                        // Dia de referência: startDate, ou dia da criação da tarefa, ou 1
-                        let refDay = 1;
-                        if (task.startDate) refDay = new Date(task.startDate).getDate();
-                        else if (task.endDate) refDay = new Date(task.endDate).getDate();
-                        // Descobrir o último dia do mês atual
-                        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                        // Se hoje é o dia de referência OU hoje é o último dia do mês e o mês não tem o dia de referência
-                        const isResetDay = (today.getDate() === refDay) || (today.getDate() === lastDayOfMonth && refDay > lastDayOfMonth);
-                        if (isResetDay) {
-                            if (interval === 1) {
-                                // Só reseta se não foi resetada neste mês
-                                if (!lastReset || lastReset.getMonth() !== today.getMonth() || lastReset.getFullYear() !== today.getFullYear()) {
-                                    shouldReset = true;
-                                }
-                            } else if (lastReset) {
-                                // Zerar hora para ambos
-                                const lastResetStart = new Date(lastReset);
-                                lastResetStart.setHours(0, 0, 0, 0);
-                                // Calcular diferença de meses entre as datas zeradas
-                                const monthsSinceLast = (todayStart.getFullYear() - lastResetStart.getFullYear()) * 12 + (todayStart.getMonth() - lastResetStart.getMonth());
-                                if (monthsSinceLast >= interval) {
-                                    shouldReset = true;
-                                }
-                            } else {
-                                shouldReset = true;
-                            }
-                        }
-                    }
-                    // Para tarefas anuais, resetar se passou o intervalo de anos desde o último reset/conclusão
-                    else if (task.repeatUnit === "year") {
-                        const interval = task.repeatInterval || 1;
-                        const lastReset = task.updatedAt ? new Date(task.updatedAt) : null;
-                        // Dia e mês de referência: startDate, endDate ou updatedAt
-                        let refDay = 1, refMonth = 0;
-                        if (task.startDate) { const d = new Date(task.startDate); refDay = d.getDate(); refMonth = d.getMonth(); }
-                        else if (task.endDate) { const d = new Date(task.endDate); refDay = d.getDate(); refMonth = d.getMonth(); }
-                        else if (lastReset) { const d = new Date(lastReset); refDay = d.getDate(); refMonth = d.getMonth(); }
-                        if (today.getDate() === refDay && today.getMonth() === refMonth) {
-                            if (interval === 1) {
-                                shouldReset = true;
-                            } else if (lastReset) {
-                                // Zerar hora para ambos
-                                const lastResetStart = new Date(lastReset);
-                                lastResetStart.setHours(0, 0, 0, 0);
-                                // Calcular diferença de anos entre as datas zeradas
-                                const yearsSinceLast = todayStart.getFullYear() - lastResetStart.getFullYear();
-                                if (yearsSinceLast >= interval) {
-                                    shouldReset = true;
-                                }
-                            } else {
-                                shouldReset = true;
-                            }
-                        }
-                    }
-
-                    if (shouldReset) {
-                        // Atualiza estado e occurences
-                        await fetch("/api/tasks", {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                taskId: task.id,
-                                state: "undone",
-                                occurences: (task.occurences !== undefined && task.occurences !== null)
-                                    ? task.occurences - 1
-                                    : undefined
-                            })
-                        });
-                    }
+                if (!task.repeat || !task.resetDay) continue;
+                // Comparar apenas ano, mês e dia
+                const resetDate = new Date(task.resetDay);
+                resetDate.setHours(0, 0, 0, 0);
+                const resetStr = resetDate.getFullYear() + '-' +
+                    String(resetDate.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(resetDate.getDate()).padStart(2, '0');
+                if (resetStr === todayStr && task.state === "done") {
+                    // Calcular próximo resetDay
+                    const nextResetDay = getNextResetDay({
+                        repeatUnit: task.repeatUnit,
+                        repeatInterval: task.repeatInterval,
+                        repeatDays: task.repeatDays,
+                        startDate: task.startDate,
+                        endDate: task.endDate,
+                        updatedAt: today,
+                    }, today);
+                    // Atualizar tarefa via API
+                    await fetch("/api/tasks", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            taskId: task.id,
+                            state: "undone",
+                            occurences: (typeof task.occurences === 'number' && task.occurences > 0)
+                                ? task.occurences - 1
+                                : task.occurences,
+                            resetDay: nextResetDay ? nextResetDay.toISOString() : null,
+                        })
+                    });
                 }
             }
         }
@@ -1126,7 +1042,10 @@ export default function TasksLists({ userId }: { userId: string }) {
             // Só chama updateRepeatingTasks se for a primeira renderização do dia
             const lastResetDate = typeof window !== 'undefined' ? localStorage.getItem('lastRepeatingTasksReset') : null;
             const today = new Date();
-            const todayStr = today.toISOString().slice(0, 10); // yyyy-mm-dd
+            // const todayStr = today.toISOString().slice(0, 10); // yyyy-mm-dd (UTC)
+            const todayStr = today.getFullYear() + '-' +
+                String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                String(today.getDate()).padStart(2, '0'); // yyyy-mm-dd (local)
             if (lastResetDate !== todayStr) {
                 updateRepeatingTasks(data).then(() => {
                     if (typeof window !== 'undefined') {

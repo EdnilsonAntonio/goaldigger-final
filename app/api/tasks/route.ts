@@ -1,6 +1,7 @@
 import prisma from "@/db/prisma";
 import { connect } from "http2";
 import { NextRequest, NextResponse } from "next/server";
+import { getNextResetDay } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   // Get the data from body
@@ -27,6 +28,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Calcular o próximo resetDay se for tarefa repetitiva
+  let resetDay = null;
+  if (repeat) {
+    resetDay = getNextResetDay({
+      repeatUnit,
+      repeatInterval,
+      repeatDays,
+      startDate,
+      endDate,
+      updatedAt: new Date(),
+    });
+  }
+
   try {
     const task = await prisma.task.create({
       data: {
@@ -41,6 +55,7 @@ export async function POST(req: NextRequest) {
         priority,
         startDate,
         endDate,
+        resetDay,
         user: { connect: { id: userId } },
         tasksList: { connect: { id: tasksListId } },
       },
@@ -115,6 +130,22 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Task not found!" }, { status: 404 });
     }
 
+    // Calcular o próximo resetDay se for tarefa repetitiva
+    let resetDay = undefined;
+    if (repeat !== undefined ? repeat : existingTask.repeat) {
+      resetDay = getNextResetDay({
+        repeatUnit: repeatUnit || existingTask.repeatUnit,
+        repeatInterval:
+          repeatInterval !== undefined
+            ? repeatInterval
+            : existingTask.repeatInterval,
+        repeatDays: repeatDays || existingTask.repeatDays,
+        startDate: startDate || existingTask.startDate,
+        endDate: endDate || existingTask.endDate,
+        updatedAt: new Date(),
+      });
+    }
+
     await prisma.task.update({
       where: { id: taskId },
       data: {
@@ -129,6 +160,7 @@ export async function PUT(req: NextRequest) {
         ...(priority && { priority }),
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
+        ...(resetDay !== undefined && { resetDay }),
       },
     });
 
