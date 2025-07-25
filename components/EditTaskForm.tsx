@@ -105,9 +105,13 @@ export default function EditTaskForm({
         }
 
         // Novo: obter occurences
-        let newOccurences = occurences || 1;
+        let newOccurences = undefined;
         if (showRepeat) {
-            newOccurences = Number((occurencesRef.current?.value) || null);
+            const occurencesValue = occurencesRef.current?.value;
+            if (occurencesValue && occurencesValue !== "") {
+                newOccurences = Number(occurencesValue);
+            }
+            // Se não preencher, não envia occurences (repetição infinita)
         }
 
         try {
@@ -378,7 +382,8 @@ export default function EditTaskForm({
                                     id="occurences"
                                     type="number"
                                     min={1}
-                                    defaultValue={occurences || 1}
+                                    defaultValue={occurences || ""}
+                                    placeholder="(leave blank for infinite)"
                                     ref={occurencesRef}
                                     className="w-16 px-2 py-1 bg-neutral-700/50 border border-neutral-600/50 rounded text-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
                                 />

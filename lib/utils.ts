@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Calcula o próximo resetDay para uma tarefa repetitiva.
- * @param task Objeto da tarefa (deve conter repeatUnit, repeatInterval, repeatDays, startDate, endDate, updatedAt)
+ * @param task Objeto da tarefa (deve conter repeatUnit, repeatInterval, repeatDays, startDate, endDate, updatedAt, occurences)
  * @param fromDate Data de referência (opcional, padrão: hoje)
  * @returns Date do próximo reset ou null
  */
@@ -19,10 +19,21 @@ export function getNextResetDay(
     startDate?: string | Date | null;
     endDate?: string | Date | null;
     updatedAt?: string | Date | null;
+    occurences?: number | null;
   },
   fromDate?: Date
 ): Date | null {
   if (!task.repeatUnit) return null;
+
+  // Verificar se ainda há ocorrências restantes
+  if (
+    task.occurences !== null &&
+    task.occurences !== undefined &&
+    task.occurences <= 0
+  ) {
+    return null; // Não há mais ocorrências, não deve repetir
+  }
+
   const interval = task.repeatInterval || 1;
   const now = fromDate ? new Date(fromDate) : new Date();
   now.setHours(0, 0, 0, 0);

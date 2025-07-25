@@ -1011,6 +1011,9 @@ export default function TasksLists({ userId }: { userId: string }) {
                         repeatDays: task.repeatDays,
                         startDate: task.startDate,
                         endDate: task.endDate,
+                        occurences: (typeof task.occurences === 'number' && task.occurences > 0)
+                            ? task.occurences - 1
+                            : task.occurences,
                         updatedAt: today,
                     }, today);
                     // Atualizar tarefa via API

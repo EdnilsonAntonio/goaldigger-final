@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       repeatDays,
       startDate,
       endDate,
+      occurences,
       updatedAt: new Date(),
     });
   }
@@ -142,6 +143,7 @@ export async function PUT(req: NextRequest) {
         repeatDays: repeatDays || existingTask.repeatDays,
         startDate: startDate || existingTask.startDate,
         endDate: endDate || existingTask.endDate,
+        occurences: occurences !== undefined ? occurences : existingTask.occurences,
         updatedAt: new Date(),
       });
     }
