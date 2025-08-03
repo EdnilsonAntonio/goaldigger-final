@@ -263,7 +263,7 @@ export default function TasksLists({ userId }: { userId: string }) {
                                 </span>
                             )}
                             {getTaskRepeat(task, fontSizes.badge)}
-                            {typeof task.occurences === 'number' && task.occurences > 0 && (
+                            {typeof task.occurences === 'number' && (
                                 <span className={`inline-block px-2 py-1 rounded-full ${fontSizes.badge} font-semibold bg-purple-800/60 text-purple-200 border border-purple-600 ml-2`}>
                                     {`Occurrences left: ${task.occurences}`}
                                 </span>
