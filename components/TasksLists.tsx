@@ -1042,19 +1042,38 @@ export default function TasksLists({ userId }: { userId: string }) {
 
         fetchTasksLists().then((data) => {
             setTasksLists(data);
-            // Só chama updateRepeatingTasks se for a primeira renderização do dia
+            // Fallback: verificar se o reset já foi feito hoje
+            // O sistema de background deve cuidar disso automaticamente,
+            // mas mantemos como fallback para casos onde o cron falha
             const lastResetDate = typeof window !== 'undefined' ? localStorage.getItem('lastRepeatingTasksReset') : null;
             const today = new Date();
-            // const todayStr = today.toISOString().slice(0, 10); // yyyy-mm-dd (UTC)
             const todayStr = today.getFullYear() + '-' +
                 String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                String(today.getDate()).padStart(2, '0'); // yyyy-mm-dd (local)
+                String(today.getDate()).padStart(2, '0');
+            
             if (lastResetDate !== todayStr) {
-                updateRepeatingTasks(data).then(() => {
+                // Tentar usar o endpoint de background primeiro
+                fetch('/api/reset-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    console.log('Reset via API:', result);
                     if (typeof window !== 'undefined') {
                         localStorage.setItem('lastRepeatingTasksReset', todayStr);
                     }
                     fetchTasksLists(); // Atualiza listas após reset
+                })
+                .catch(error => {
+                    console.warn('Falha no reset via API, usando método local:', error);
+                    // Fallback para o método local se a API falhar
+                    updateRepeatingTasks(data).then(() => {
+                        if (typeof window !== 'undefined') {
+                            localStorage.setItem('lastRepeatingTasksReset', todayStr);
+                        }
+                        fetchTasksLists();
+                    });
                 });
             }
         });
