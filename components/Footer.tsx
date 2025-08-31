@@ -18,7 +18,7 @@ export default function Footer() {
         <nav className="flex flex-col md:flex-row gap-4 md:gap-8 items-center">
           <Link href="/" className="text-gray-300 hover:text-blue-400 transition">Home</Link>
           <Link href="#features" className="text-gray-300 hover:text-blue-400 transition">Features</Link>
-          <Link href="#pricing" className="text-gray-300 hover:text-blue-400 transition">Pricing</Link>
+          <Link href="/pricing" className="text-gray-300 hover:text-blue-400 transition">Pricing</Link>
           <Link href="/support" className="text-gray-300 hover:text-blue-400 transition">Support</Link>
         </nav>
         {/* Social Icons */}

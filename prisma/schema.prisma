@@ -9,13 +9,13 @@ datasource db {
 
 enum Plan {
   free
-  premium
+  plus
+  pro
 }
 
 enum SubscriptionPeriod {
   monthly
   yearly
-  lifetime
 }
 
 model User {

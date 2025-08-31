@@ -14,8 +14,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { DropdownMenuItem } from "@radix-ui/react-dropdown-menu";
+import { useUserPlan } from "./providers/UserPlanProvider";
+import capitalizeFirstLetter from "../scripts/capitalizeFirstLetter"
 
 export default function Sidebar() {
+
+    const userPlan = useUserPlan();
 
     const { getUser, isLoading } = useKindeBrowserClient();
     const user = getUser();
@@ -187,7 +191,7 @@ export default function Sidebar() {
                                     {sidebarOpen && (
                                         <span className="text-start">
                                             <h3 className="font-bold">{`${user?.given_name} ${user?.family_name}`}</h3>
-                                            <p className="text-xs">Premium Plan</p>
+                                            <p className="text-xs">{capitalizeFirstLetter(userPlan)} Plan</p>
                                         </span>
                                     )}
                                 </div>

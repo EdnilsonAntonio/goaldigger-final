@@ -6,7 +6,7 @@ export default withAuth(
   },
   {
     // Middleware still runs on all routes, but doesn't protect the ones listed here
-    publicPaths: ["/", "/terms", "/api"],
+    publicPaths: ["/", "/terms", "/api", "/pricing"],
     isReturnToCurrentPage: true,
   }
 );

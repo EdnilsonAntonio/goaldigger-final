@@ -15,7 +15,7 @@ export default function HeroSection() {
         <p className="text-lg text-gray-300 mb-6">
           GoalDigger is your all-in-one platform to set, track, and accomplish your goals with powerful tools and smart automation. Start your journey to success today.
         </p>
-        <Link href="/register">
+        <Link href="/pricing">
           <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg transition-all">
             Get Started
           </Button>

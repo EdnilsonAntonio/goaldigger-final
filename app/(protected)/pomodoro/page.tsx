@@ -13,6 +13,7 @@ import {
     AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Timer, ListTodo, Settings, AlarmClockCheck } from "lucide-react";
+import { useUserPlan } from "@/components/providers/UserPlanProvider";
 
 declare global {
     interface Window {
@@ -68,6 +69,20 @@ function playModeChangeSound() {
 }
 
 export default function PomodoroPage() {
+
+    const userPlan = useUserPlan();
+    // debug - console.log(userPlan);
+
+    // Permitir apenas usuários Pro
+    if (userPlan !== "pro") {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center p-24">
+                <h1 className="text-2xl font-bold mb-4">Pomodoro</h1>
+                <p>You need to have the Pro Plan to access this feature!</p>
+            </div>
+        );
+    }
+
     const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
     const [timer, setTimer] = useState(FOCUS_TIME);
     const [isRunning, setIsRunning] = useState(false);
