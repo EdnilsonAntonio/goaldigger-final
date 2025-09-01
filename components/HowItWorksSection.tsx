@@ -1,4 +1,4 @@
-import { PlayCircle, Zap, CheckCircle2 } from "lucide-react";
+import { PlayCircle, Zap, CheckCircle2, CircleUserRound, CreditCard, ScrollText } from "lucide-react";
 
 export default function HowItWorksSection() {
   return (
@@ -11,11 +11,11 @@ export default function HowItWorksSection() {
         <div className="relative z-10 flex w-full justify-start">
           <div className="flex items-center gap-6 bg-neutral-900 rounded-xl p-6 border border-neutral-800 shadow-lg md:max-w-md ml-0 md:ml-0">
             <span className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-900/30 border-2 border-blue-500">
-              <PlayCircle className="w-8 h-8 text-blue-400" />
+              <CircleUserRound className="w-8 h-8 text-blue-400" />
             </span>
             <div>
               <h4 className="font-semibold text-lg mb-2">Create Your Account</h4>
-              <p className="text-gray-400">Sign up and choose your plan to unlock all features and start achieving your goals.</p>
+              <p className="text-gray-400">Sign up using Google, Github or Email to get started.</p>
             </div>
           </div>
           {/* Connector dot */}
@@ -25,11 +25,11 @@ export default function HowItWorksSection() {
         <div className="relative z-10 flex w-full justify-end">
           <div className="flex items-center gap-6 bg-neutral-900 rounded-xl p-6 border border-neutral-800 shadow-lg md:max-w-md mr-0 md:mr-0">
             <span className="flex items-center justify-center w-16 h-16 rounded-full bg-green-900/30 border-2 border-green-500">
-              <Zap className="w-8 h-8 text-green-400" />
+              <ScrollText className="w-8 h-8 text-green-400" />
             </span>
             <div>
-              <h4 className="font-semibold text-lg mb-2">Set Goals & Tasks</h4>
-              <p className="text-gray-400">Add your goals, break them into tasks, and organize your workflow.</p>
+              <h4 className="font-semibold text-lg mb-2">Choose Your Plan</h4>
+              <p className="text-gray-400">Choose a plan that fits your needs and start achieving your goals.</p>
             </div>
           </div>
           {/* Connector dot */}

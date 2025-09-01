@@ -1,4 +1,5 @@
 import { HelpCircle } from "lucide-react";
+import Link from "next/link";
 
 export default function FAQSection() {
   return (
@@ -22,9 +23,9 @@ export default function FAQSection() {
         <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
           <div className="flex items-center mb-2">
             <HelpCircle className="w-5 h-5 text-purple-400 mr-2" />
-            <span className="font-semibold">How do integrations work?</span>
+            <span className="font-semibold">I'm not sure if i want to subscribe, is there a free trial?</span>
           </div>
-          <p className="text-gray-400 ml-7">You can connect your favorite tools in just a few clicks from your dashboard.</p>
+          <p className="text-gray-400 ml-7">Yes, we offer a 7-day free trial for all monthly plans. You can cancel at any time.</p>
         </div>
         <div className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
           <div className="flex items-center mb-2">
@@ -38,7 +39,7 @@ export default function FAQSection() {
             <HelpCircle className="w-5 h-5 text-pink-400 mr-2" />
             <span className="font-semibold">How much does GoalDigger cost?</span>
           </div>
-          <p className="text-gray-400 ml-7">We offer flexible plans to fit your needs. Check our pricing page for details and choose the plan that's right for you.</p>
+          <p className="text-gray-400 ml-7">We offer flexible plans to fit your needs. Check our <Link href="/pricing" className="text-blue-400">pricing page</Link> for details and choose the plan that's right for you.</p>
         </div>
       </div>
     </section>

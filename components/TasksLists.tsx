@@ -43,6 +43,7 @@ import {
 import { Button } from "@/components/ui/button"
 import EditTaskForm from "./EditTaskForm";
 import { getNextResetDay } from "@/lib/utils";
+import { useUserPlan } from "./providers/UserPlanProvider";
 
 export function AlertDialogDemo() {
     return (
@@ -68,6 +69,10 @@ export function AlertDialogDemo() {
 }
 
 export default function TasksLists({ userId }: { userId: string }) {
+
+
+    const userPlan = useUserPlan();
+
     const [tasksLists, setTasksLists] = useState<TasksList[]>([]);
     const [addTaskFormVisibleId, setAddTaskFormVisibleId] = useState<string | null>(null);
     const [tasksUpdated, setTasksUpdated] = useState(false);
@@ -508,6 +513,21 @@ export default function TasksLists({ userId }: { userId: string }) {
 
     // Adicionar uma lista de tarefa
     const handleAddList = async (e: React.FormEvent) => {
+
+        // Limitar o número de listas para 20 no plano Plus
+        if (userPlan === "plus" && tasksLists.length >= 7) {
+            toast.error("You have reached the maximum number of lists for your plan. Please upgrade to a higher plan to add more lists.");
+            setShowAddtasksList(false);
+            return;
+        }
+
+        // Limitar o número de listas para 20 no plano Pro
+        if (userPlan === "pro" && tasksLists.length >= 20) {
+            toast.error("You have reached the maximum number of lists for your plan. Please delete some lists to add more.");
+            setShowAddtasksList(false);
+            return;
+        }
+
         e.preventDefault();
         const title = tasksListTitle.current?.value || "";
 

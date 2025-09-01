@@ -38,7 +38,7 @@ export default async function ProtectedLayout({
 
   if (prismaUser?.plan === "free") {
     console.log("You must be a premium member to access this area!");
-    redirect("/");
+    redirect("/pricing");
   }
 
   const userPlan = await prismaUser?.plan;

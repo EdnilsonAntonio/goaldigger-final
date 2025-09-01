@@ -25,7 +25,7 @@ export default function Sidebar() {
     const user = getUser();
 
     // Sidebar opening config
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen);
     }
