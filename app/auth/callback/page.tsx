@@ -2,7 +2,7 @@
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { checkAuthStatus } from "./actions";
 import { useEffect } from "react";
 
@@ -24,7 +24,7 @@ const Page = () => {
 		}
 	}, [router, user, data]);
 
-	if (data?.success) router.push("/dashboard");
+	if (data?.success) redirect("/dashboard");
 
 	return (
 		<div className='mt-20 w-full flex justify-center'>

@@ -1084,32 +1084,53 @@ export default function TasksLists({ userId }: { userId: string }) {
         <div className="flex flex-col items-center justify-center p-4 w-full">
             <div className="flex items-center justify-between w-full max-w-7xl mb-6">
                 <h2 className="text-2xl font-bold text-white text-center">Your Task Lists</h2>
-                <button
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                    onClick={showAddTasksListForm}
-                >
-                    <ClipboardPlus size={18} />
-                    <span>Add a new tasks list</span>
-                </button>
+                {tasksLists.length > 0 && (
+                    <button
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                        onClick={showAddTasksListForm}
+                    >
+                        <ClipboardPlus size={18} />
+                        <span>Add a new tasks list</span>
+                    </button>
+                )}
             </div>
             <AddTasksListForm />
             {/* Tasks Lists */}
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleListDragEnd}
-            >
-                <SortableContext
-                    items={tasksLists.map(list => list.id)}
-                    strategy={verticalListSortingStrategy}
+            {tasksLists.length === 0 ? (
+                <div className="w-full max-w-7xl text-center py-16">
+                    <div className="bg-neutral-800/80 border border-neutral-700 rounded-xl p-12 shadow-lg">
+                        <ClipboardPlus size={64} className="mx-auto text-neutral-400 mb-6" />
+                        <h3 className="text-xl font-semibold text-white mb-4">No task lists yet</h3>
+                        <p className="text-neutral-400 mb-6 max-w-md mx-auto">
+                            Create your first task list to start organizing your tasks and boost your productivity.
+                        </p>
+                        <button
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                            onClick={showAddTasksListForm}
+                        >
+                            <ListPlus size={20} />
+                            <span>Create your first list</span>
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleListDragEnd}
                 >
-                    <ul className={`flex gap-8 w-full ${tasksLists.length > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} pb-4 scrollbar-thin scrollbar-thumb-neutral-500 scrollbar-track-neutral-800 hover:scrollbar-thumb-neutral-400`}>
-                        {tasksLists.map((tasksList) => (
-                            <SortableList key={tasksList.id} tasksList={tasksList} />
-                        ))}
-                    </ul>
-                </SortableContext>
-            </DndContext>
+                    <SortableContext
+                        items={tasksLists.map(list => list.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <ul className={`flex gap-8 w-full ${tasksLists.length > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} pb-4 scrollbar-thin scrollbar-thumb-neutral-500 scrollbar-track-neutral-800 hover:scrollbar-thumb-neutral-400`}>
+                            {tasksLists.map((tasksList) => (
+                                <SortableList key={tasksList.id} tasksList={tasksList} />
+                            ))}
+                        </ul>
+                    </SortableContext>
+                </DndContext>
+            )}
         </div>
     );
 }
