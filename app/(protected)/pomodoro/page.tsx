@@ -252,17 +252,19 @@ export default function PomodoroPage() {
 
         // Limitar o número de tarefas para 5 no plano Plus
         if (userPlan === "plus" && tasks.length >= 5) {
-            toast.error("You have reached the maximum number of tasks for your plan. Please upgrade to a higher plan to add more tasks.", {
-                duration: 3000,
+            toast.error("You have reached the maximum number of tasks for your plan. Please upgrade to Pro plan to add more tasks.", {
+                duration: 7000,
             });
+            e.preventDefault();
             return;
         }
 
         // Limitar o número de tarefas para 10 no plano Pro
         if (userPlan === "pro" && tasks.length >= 10) {
             toast.error("You have reached the maximum number of tasks for your plan. Please delete some tasks to add more.", {
-                duration: 3000,
+                duration: 7000,
             });
+            e.preventDefault();
             return;
         }
 

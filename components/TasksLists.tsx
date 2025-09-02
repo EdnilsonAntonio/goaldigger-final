@@ -516,15 +516,21 @@ export default function TasksLists({ userId }: { userId: string }) {
 
         // Limitar o número de listas para 20 no plano Plus
         if (userPlan === "plus" && tasksLists.length >= 7) {
-            toast.error("You have reached the maximum number of lists for your plan. Please upgrade to a higher plan to add more lists.");
+            toast.error("You have reached the maximum number of lists for your plan. Please upgrade to a higher plan to add more lists.", {
+                duration: 7000
+            });
             setShowAddtasksList(false);
+            e.preventDefault();
             return;
         }
 
         // Limitar o número de listas para 20 no plano Pro
         if (userPlan === "pro" && tasksLists.length >= 20) {
-            toast.error("You have reached the maximum number of lists for your plan. Please delete some lists to add more.");
+            toast.error("You have reached the maximum number of lists for your plan. Please delete some lists to add more.", {
+                duration: 7000
+            });
             setShowAddtasksList(false);
+            e.preventDefault();
             return;
         }
 

@@ -28,6 +28,7 @@ model User {
 
   tasks      Task[]           // relação 1:N (um usuário pode ter várias tarefas)
   tasksLists TasksList[]   // <- acesso a todas as listas desse usuário
+  goals      Goal[]          // relação 1:N (um usuário pode ter vários goals)
 
   Subscription Subscription?
 
@@ -77,6 +78,11 @@ enum TaskPriority {
   medium
   low
   none
+}
+
+enum GoalState {
+  inProgress
+  achieved
 }
 
 model Task {
@@ -133,4 +139,26 @@ model PomoTask {
   state         TaskState    @default(undone)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model Goal {
+  id          String    @id @default(cuid()) @map("_id")
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  state       GoalState @default(inProgress)
+  
+  // Para goals numerados
+  isNumeric   Boolean   @default(false)
+  target      Float?    // Valor alvo (ex: 10000 para 10k dólares)
+  current     Float     @default(0) // Progresso atual
+  unit        String?   // Unidade de medição (ex: "dollars", "books")
+  
+  // Para todos os goals
+  deadline    DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
