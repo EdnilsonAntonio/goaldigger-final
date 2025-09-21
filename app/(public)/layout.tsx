@@ -26,15 +26,13 @@ export default function PublicLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
+      <div
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Navbar/>
         {children}
         <Footer />
         <ScrollToTopButton />
-      </body>
-    </html>
+      </div>
   );
 }
