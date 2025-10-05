@@ -26,9 +26,10 @@ model User {
   plan       Plan    @default(free)
   customerId String? // Stripe customer ID, this will be important when we need to delete the subscription
 
-  tasks      Task[]           // relação 1:N (um usuário pode ter várias tarefas)
-  tasksLists TasksList[]   // <- acesso a todas as listas desse usuário
-  goals      Goal[]          // relação 1:N (um usuário pode ter vários goals)
+  tasks        Task[]           // relação 1:N (um usuário pode ter várias tarefas)
+  tasksLists   TasksList[]      // <- acesso a todas as listas desse usuário
+  goals        Goal[]           // relação 1:N (um usuário pode ter vários goals)
+  transactions Transaction[]    // relação 1:N (um usuário pode ter várias transações)
 
   Subscription Subscription?
 
@@ -161,4 +162,29 @@ model Goal {
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+model Transaction {
+  id          String          @id @default(cuid()) @map("_id")
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  amount      Float           
+  category    String          @default("General")
+  type        TransactionType
+  date        DateTime
+  description String?         
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([userId])           // índice para melhorar performance de queries por usuário
+  @@index([date])             // índice para filtrar por data (útil para relatórios mensais)
+  @@index([type])             // índice para filtrar por tipo (income/expense)
 }

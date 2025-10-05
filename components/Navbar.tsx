@@ -14,7 +14,7 @@ export default function Navbar() {
         <nav className="backdrop-blur-lg bg-black/80 border-b border-neutral-800 shadow-sm sticky top-0 z-50">
             <div className="container mx-auto flex justify-between items-center py-3 px-4">
                 <Link href="/" className="flex items-center gap-2 group">
-                    <Image src="/globe.svg" alt="GoalDigger Logo" width={32} height={32} className="transition-transform group-hover:scale-110" />
+                    <Image src="/branding/Transparent Colored Symbol.png" alt="GoalDigger Logo" width={50} height={50} className="transition-transform group-hover:scale-110" />
                     <span className="text-white text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">GoalDigger</span>
                 </Link>
                 <ul className="flex items-center gap-2 md:gap-4">

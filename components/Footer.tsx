@@ -9,7 +9,7 @@ export default function Footer() {
         {/* Logo and Brand */}
         <div className="flex flex-col items-center md:items-start gap-2">
           <Link href="/" className="flex items-center gap-2 group">
-            <Image src="/globe.svg" alt="GoalDigger Logo" width={36} height={36} className="transition-transform group-hover:scale-110" />
+            <Image src="/branding/Transparent Colored Symbol.png" alt="GoalDigger Logo" width={50} height={50} className="transition-transform group-hover:scale-110" />
             <span className="text-white text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">GoalDigger</span>
           </Link>
           <span className="text-xs text-gray-400 mt-1">Achieve your goals, beautifully.</span>
