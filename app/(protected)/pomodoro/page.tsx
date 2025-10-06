@@ -13,8 +13,11 @@ import {
     AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Timer, ListTodo, Settings, AlarmClockCheck } from "lucide-react";
-import { useUserPlan } from "@/components/providers/UserPlanProvider";
+import { useUserId, useUserPlan } from "@/components/providers/UserPlanProvider";
 import { toast } from "sonner";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import prisma from "@/db/prisma";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 declare global {
     interface Window {
@@ -236,19 +239,34 @@ export default function PomodoroPage() {
         };
     }, [isRunning, currentOptions.TICKING]);
 
+    const userId = useUserId()
+
     // Buscar tarefas
     const fetchTasks = useCallback(async () => {
+        if (!userId) return; // Adicione esta verificação
+        
         setLoadingTasks(true);
-        const res = await fetch("/api/pomotasks");
+        const res = await fetch("/api/pomotasks", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "userId": userId
+            }
+        });
         const data = await res.json();
         setTasks(data);
         setLoadingTasks(false);
-    }, []);
+    }, [userId]); // Adicione userId como dependência
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
     // Adicionar tarefa
     const handleAddTask = async (e: React.FormEvent) => {
+
+        if (!userId) {
+            toast.error("Unauthorised!")
+            console.log("userId is required");
+        }
 
         // Limitar o número de tarefas para 5 no plano Plus
         if (userPlan === "plus" && tasks.length >= 5) {
@@ -272,7 +290,10 @@ export default function PomodoroPage() {
         if (!newTask.title.trim()) return;
         await fetch("/api/pomotasks", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json", 
+                ...(userId ? { "userId": userId } : {})
+            },
             body: JSON.stringify(newTask),
         });
         setNewTask({ title: "", notes: "", estPomodoros: 1 });
@@ -351,6 +372,7 @@ export default function PomodoroPage() {
         if (mode === "short") setTimer(currentOptions.SHORT_BREAK);
         if (mode === "long") setTimer(currentOptions.LONG_BREAK);
     };
+
 
     return (
         <main className="min-h-screen bg-neutral-900 text-white p-6">

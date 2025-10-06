@@ -29,6 +29,7 @@ model User {
   tasks        Task[]           // relação 1:N (um usuário pode ter várias tarefas)
   tasksLists   TasksList[]      // <- acesso a todas as listas desse usuário
   goals        Goal[]           // relação 1:N (um usuário pode ter vários goals)
+  pomotasks    PomoTask[]       // relação 1:N (um usuário pode ter vários pomotasks)
   transactions Transaction[]    // relação 1:N (um usuário pode ter várias transações)
 
   Subscription Subscription?
@@ -134,6 +135,8 @@ model TasksList {
 
 model PomoTask {
   id            String   @id @default(uuid()) @map("_id")
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title         String
   notes         String?
   estPomodoros  Int          @default(1)

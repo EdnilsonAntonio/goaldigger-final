@@ -25,10 +25,11 @@ export default async function ProtectedLayout({
   }
 
   const userPlan = await prismaUser?.plan;
+  const userId = prismaUser?.id ?? null;
 
   return (
 
-    <UserPlanProvider userPlan={userPlan ?? null}>
+    <UserPlanProvider userPlan={userPlan ?? null} userId={userId}>
       <div className="h-screen flex">
         <Sidebar />
         <main className="flex-1 h-full overflow-auto bg-neutral-900 text-white">

@@ -2,24 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/db/prisma";
 
 // GET: List all PomoTasks
-export async function GET() {
-  const tasks = await prisma.pomoTask.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(tasks);
+export async function GET(req: NextRequest) {
+
+  const userId = req.headers.get("userId");
+
+  if (!userId) {
+    return NextResponse.json({message: "userId is required"}, {status: 401});
+  }
+
+  try {
+    const tasks = await prisma.pomoTask.findMany({
+      where: {userId: userId},
+      orderBy: { createdAt: "desc" }
+    });
+    return NextResponse.json(tasks);
+  } catch (error) {
+    return NextResponse.json({message: "Error: " + error}, {status: 500})
+  }
+
 }
 
 // POST: Create a new PomoTask
 export async function POST(req: NextRequest) {
   const { title, notes, estPomodoros } = await req.json();
-  if (!title)
+  const userId = req.headers.get("userId");
+
+  if (!userId) {
+    return NextResponse.json({message: "userId is required"}, {status: 401});
+  }
+  if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
   const task = await prisma.pomoTask.create({
     data: {
       title,
       notes,
       estPomodoros: estPomodoros ?? 1,
       state: "undone",
+      user: { connect: {id: userId}}
     },
   });
   return NextResponse.json(task);
