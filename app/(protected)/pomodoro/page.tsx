@@ -13,11 +13,8 @@ import {
     AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Timer, ListTodo, Settings, AlarmClockCheck } from "lucide-react";
-import { useUserId, useUserPlan } from "@/components/providers/UserPlanProvider";
+import { useUserId, useUserPlan } from "@/components/providers/UserProvider";
 import { toast } from "sonner";
-import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import prisma from "@/db/prisma";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 declare global {
     interface Window {
@@ -244,7 +241,7 @@ export default function PomodoroPage() {
     // Buscar tarefas
     const fetchTasks = useCallback(async () => {
         if (!userId) return; // Adicione esta verificação
-        
+
         setLoadingTasks(true);
         const res = await fetch("/api/pomotasks", {
             method: "GET",
@@ -290,8 +287,8 @@ export default function PomodoroPage() {
         if (!newTask.title.trim()) return;
         await fetch("/api/pomotasks", {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json", 
+            headers: {
+                "Content-Type": "application/json",
                 ...(userId ? { "userId": userId } : {})
             },
             body: JSON.stringify(newTask),

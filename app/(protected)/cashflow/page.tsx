@@ -1,24 +1,12 @@
-import prisma from "@/db/prisma";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+"use client";
 
 import TransactionsTable from "@/components/TransactionsTable";
 import { BanknoteArrowUp, Wallet } from "lucide-react";
+import { useUserId } from "@/components/providers/UserProvider";
 
-export default async function CashFlowPage() {
+export default function CashFlowPage() {
 
-    // Get the current user's session from Kinde
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-
-    let userId: string | null = null;
-    if (user?.email) {
-        // Look up the user in Prisma by email
-        const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            select: { id: true },
-        });
-        userId = dbUser?.id || null;
-    }
+    const userId = useUserId();
 
     if (!userId) {
         return (

@@ -1,22 +1,11 @@
+"use client";
+
 import TasksLists from "@/components/TasksLists";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import prisma from "@/db/prisma";
 import { ListTodo } from "lucide-react";
+import { useUserId } from "@/components/providers/UserProvider";
 
-export default async function TasksPage() {
-    // Get the current user's session from Kinde
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-
-    let userId: string | null = null;
-    if (user?.email) {
-        // Look up the user in Prisma by email
-        const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            select: { id: true },
-        });
-        userId = dbUser?.id || null;
-    }
+export default function TasksPage() {
+    const userId = useUserId();
 
     if (!userId) {
         return (

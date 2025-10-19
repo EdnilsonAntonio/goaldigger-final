@@ -14,12 +14,16 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { DropdownMenuItem } from "@radix-ui/react-dropdown-menu";
-import { useUserPlan } from "./providers/UserPlanProvider";
+import { useUserEmail, useUserImage, useUserName, useUserPlan, useUserShortName } from "./providers/UserProvider";
 import capitalizeFirstLetter from "../scripts/capitalizeFirstLetter"
 
 export default function Sidebar() {
 
     const userPlan = useUserPlan();
+    const userName = useUserName();
+    const userShortName = useUserShortName();
+    const userEmail = useUserEmail();
+    const userImage = useUserImage();
 
     const { getUser, isLoading } = useKindeBrowserClient();
     const user = getUser();
@@ -185,12 +189,12 @@ export default function Sidebar() {
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                     <Avatar className="bg-neutral-700">
-                                        <AvatarImage src={`${user?.picture}`} />
-                                        <AvatarFallback>{`${user?.given_name?.[0]}${user?.family_name?.[0]}`}</AvatarFallback>
+                                        <AvatarImage src={`${userImage}`} />
+                                        <AvatarFallback>{`${userShortName}`}</AvatarFallback>
                                     </Avatar>
                                     {sidebarOpen && (
                                         <span className="text-start">
-                                            <h3 className="font-bold">{`${user?.given_name} ${user?.family_name}`}</h3>
+                                            <h3 className="font-bold">{`${userName}`}</h3>
                                             <p className="text-xs">{capitalizeFirstLetter(userPlan)} Plan</p>
                                         </span>
                                     )}
@@ -204,7 +208,7 @@ export default function Sidebar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side={sidebarOpen ? "top" : "right"} className={`bg-white ${sidebarOpen && "w-60"}`}>
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuItem className="text-xs flex items-center gap-2 p-2"><Mail size={"15"} /> {user?.email}</DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs flex items-center gap-2 p-2"><Mail size={"15"} /> {userEmail}</DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-500" />
                     <nav className="flex-1 p-3 space-y-2">
                         <ul className="flex flex-col gap-3">

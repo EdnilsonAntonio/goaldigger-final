@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import prisma from "@/db/prisma";
 
 // GET - Obter todos os goals do usuário
 export async function GET(request: NextRequest) {
   try {
-    const { getUser } = await getKindeServerSession();
-    const user = await getUser();
+    const userId = request.headers.get("userId");
 
-    if (!user || !user.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const goals = await prisma.goal.findMany({
       where: {
-        userId: user.id,
+        userId: userId,
       },
       orderBy: {
         createdAt: "desc",
@@ -34,10 +32,9 @@ export async function GET(request: NextRequest) {
 // POST - Criar um novo goal
 export async function POST(request: NextRequest) {
   try {
-    const { getUser } = await getKindeServerSession();
-    const user = await getUser();
+    const userId = request.headers.get("userId");
 
-    if (!user || !user.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -66,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const goal = await prisma.goal.create({
       data: {
-        userId: user.id,
+        user: { connect: { id: userId } },
         title,
         description,
         isNumeric,
@@ -91,10 +88,9 @@ export async function POST(request: NextRequest) {
 // PUT - Atualizar um goal
 export async function PUT(request: NextRequest) {
   try {
-    const { getUser } = await getKindeServerSession();
-    const user = await getUser();
+    const userId = request.headers.get("userId");
 
-    if (!user || !user.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -121,7 +117,7 @@ export async function PUT(request: NextRequest) {
     const existingGoal = await prisma.goal.findFirst({
       where: {
         id: goalId,
-        userId: user.id,
+        userId: userId,
       },
     });
 
@@ -179,10 +175,9 @@ export async function PUT(request: NextRequest) {
 // DELETE - Deletar um goal
 export async function DELETE(request: NextRequest) {
   try {
-    const { getUser } = await getKindeServerSession();
-    const user = await getUser();
+    const userId = request.headers.get("userId");
 
-    if (!user || !user.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -200,7 +195,7 @@ export async function DELETE(request: NextRequest) {
     const existingGoal = await prisma.goal.findFirst({
       where: {
         id: goalId,
-        userId: user.id,
+        userId: userId,
       },
     });
 

@@ -16,7 +16,7 @@ import { Pencil, Trash, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AlertDialogDemo } from "./AlertDialog";
-import { useUserPlan } from "./providers/UserPlanProvider";
+import { useUserPlan } from "./providers/UserProvider";
 
 
 export default function TransactionsTable({ userId }: { userId: string }) {

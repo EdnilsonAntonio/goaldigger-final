@@ -43,7 +43,7 @@ import {
 import { Button } from "@/components/ui/button"
 import EditTaskForm from "./EditTaskForm";
 import { getNextResetDay } from "@/lib/utils";
-import { useUserPlan } from "./providers/UserPlanProvider";
+import { useUserPlan } from "./providers/UserProvider";
 
 export function AlertDialogDemo() {
     return (

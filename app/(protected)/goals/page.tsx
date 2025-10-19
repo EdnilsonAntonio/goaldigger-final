@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useKindeAuth, useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { toast } from "sonner";
 import {
     Target,
@@ -10,14 +9,12 @@ import {
     Plus,
     Edit,
     Trash2,
-    Calendar,
     TrendingUp,
     Clock,
     RotateCcw,
     ArrowUpDown,
     CalendarDays,
     Hash,
-    List,
     Goal
 } from "lucide-react";
 import {
@@ -31,7 +28,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useUserPlan } from "@/components/providers/UserPlanProvider";
+import { useUserId, useUserPlan } from "@/components/providers/UserProvider";
 
 interface Goal {
     id: string;
@@ -50,9 +47,9 @@ interface Goal {
 export default function GoalsPage() {
 
     const userPlan = useUserPlan();
+    const userId = useUserId()
 
-    const { getUser } = useKindeBrowserClient();
-    const user = getUser();
+    
     const [goals, setGoals] = useState<Goal[]>([]);
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -70,7 +67,12 @@ export default function GoalsPage() {
     // Fetch goals
     const fetchGoals = async () => {
         try {
-            const response = await fetch("/api/goals");
+            const response = await fetch("/api/goals", {
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
+                },
+            });
 
             if (response.ok) {
                 const data = await response.json();
@@ -139,6 +141,7 @@ export default function GoalsPage() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({
                     title: title.trim(),
@@ -188,6 +191,7 @@ export default function GoalsPage() {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({
                     goalId: editingGoal.id,
@@ -231,6 +235,7 @@ export default function GoalsPage() {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({
                     goalId,
@@ -266,6 +271,7 @@ export default function GoalsPage() {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({
                     goalId: goal.id,
@@ -299,6 +305,7 @@ export default function GoalsPage() {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({
                     goalId: goal.id,
@@ -333,6 +340,7 @@ export default function GoalsPage() {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(userId ? { "userId": userId } : {}),
                 },
                 body: JSON.stringify({ goalId }),
             });
@@ -455,12 +463,12 @@ export default function GoalsPage() {
     };
 
     useEffect(() => {
-        if (user) {
+        if (userId) {
             fetchGoals();
         } else {
             setLoading(false);
         }
-    }, [user]);
+    }, [userId]);
 
     // Timeout de segurança para evitar loading infinito
     useEffect(() => {
@@ -671,10 +679,10 @@ export default function GoalsPage() {
                             <div
                                 key={goal.id}
                                 className={`bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border p-6 shadow-xl transition-all duration-300 hover:shadow-2xl ${goal.state === "achieved"
-                                        ? "border-green-600/50 bg-green-900/10 hover:border-green-500/70"
-                                        : goal.deadline && isOverdue(goal.deadline)
-                                            ? "border-red-600/50 bg-red-900/10 hover:border-red-500/70"
-                                            : "border-neutral-700 hover:border-neutral-600"
+                                    ? "border-green-600/50 bg-green-900/10 hover:border-green-500/70"
+                                    : goal.deadline && isOverdue(goal.deadline)
+                                        ? "border-red-600/50 bg-red-900/10 hover:border-red-500/70"
+                                        : "border-neutral-700 hover:border-neutral-600"
                                     }`}
                             >
                                 {/* Goal Header */}
@@ -764,8 +772,8 @@ export default function GoalsPage() {
                                         <button
                                             onClick={() => handleToggleGoalState(goal)}
                                             className={`flex-1 px-3 py-2 rounded-lg text-white text-sm font-medium transition-all duration-200 ${goal.state === "achieved"
-                                                    ? "bg-orange-600 hover:bg-orange-700"
-                                                    : "bg-green-600 hover:bg-green-700"
+                                                ? "bg-orange-600 hover:bg-orange-700"
+                                                : "bg-green-600 hover:bg-green-700"
                                                 }`}
                                         >
                                             {goal.state === "achieved" ? (
