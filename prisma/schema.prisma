@@ -31,6 +31,9 @@ model User {
   goals        Goal[]           // relação 1:N (um usuário pode ter vários goals)
   pomotasks    PomoTask[]       // relação 1:N (um usuário pode ter vários pomotasks)
   transactions Transaction[]    // relação 1:N (um usuário pode ter várias transações)
+  bugReports   BugReport[]      // relação 1:N (um usuário pode ter vários bug reports)
+  supportRequests SupportRequest[] // relação 1:N (um usuário pode ter vários support requests)
+  reviews      Review[]         // relação 1:N (um usuário pode ter várias reviews)
 
   Subscription Subscription?
 
@@ -190,4 +193,88 @@ model Transaction {
   @@index([userId])           // índice para melhorar performance de queries por usuário
   @@index([date])             // índice para filtrar por data (útil para relatórios mensais)
   @@index([type])             // índice para filtrar por tipo (income/expense)
+}
+
+enum BugReportStatus {
+  pending
+  inProgress
+  resolved
+  closed
+}
+
+model BugReport {
+  id          String           @id @default(cuid()) @map("_id")
+  userId      String?          // Opcional, pois usuários não autenticados também podem reportar
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String
+  email       String?          // Email do usuário (obrigatório se não autenticado)
+  status      BugReportStatus  @default(pending)
+  browserInfo String?          // Informações do navegador
+  userAgent   String?          // User agent string
+  url         String?          // URL onde o bug ocorreu
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum SupportRequestCategory {
+  billing
+  technical
+  account
+  feature
+  general
+  other
+}
+
+enum SupportRequestStatus {
+  pending
+  inProgress
+  resolved
+  closed
+}
+
+model SupportRequest {
+  id          String                  @id @default(cuid()) @map("_id")
+  userId      String?                 // Opcional, pois usuários não autenticados também podem solicitar suporte
+  user        User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String
+  category    SupportRequestCategory
+  email       String?                 // Email do usuário (obrigatório se não autenticado)
+  status      SupportRequestStatus     @default(pending)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Review {
+  id          String   @id @default(cuid()) @map("_id")
+  userId      String?  // Opcional, mas recomendado para evitar reviews duplicadas
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  rating      Int      // Rating de 1 a 5 estrelas
+  comment     String?  // Comentário opcional
+  name        String?  // Nome do revisor (se não autenticado)
+  email       String?  // Email do revisor (se não autenticado)
+  approved    Boolean  @default(false) // Para moderar reviews antes de exibir
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([rating])
+  @@index([approved])
+  @@index([createdAt])
 }
