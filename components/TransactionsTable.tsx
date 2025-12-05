@@ -12,11 +12,12 @@ import {
 } from "@/components/ui/table"
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
-import { Pencil, Trash, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AlertDialogDemo } from "./AlertDialog";
 import { useUserPlan } from "./providers/UserProvider";
+import jsPDF from "jspdf";
 
 
 export default function TransactionsTable({ userId }: { userId: string }) {
@@ -49,6 +50,10 @@ export default function TransactionsTable({ userId }: { userId: string }) {
     const [minYearMonth, setMinYearMonth] = useState<{ year: number; month: number } | null>(null);
     const [maxYearMonth, setMaxYearMonth] = useState<{ year: number; month: number } | null>(null);
     const [availableYearMonths, setAvailableYearMonths] = useState<{ year: number; month: number }[]>([]);
+    const [showExportDialog, setShowExportDialog] = useState(false);
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
+    const [isExporting, setIsExporting] = useState(false);
 
 
     interface Transaction {
@@ -90,7 +95,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                 const key = `${y}-${m}`;
                 if (!seen[key]) { seen[key] = true; yearMonths.push({ year: y, month: m }); }
             }
-            // Ordenar ano/mes
+            // Sort year/month
             yearMonths.sort((a, b) => a.year === b.year ? a.month - b.month : a.year - b.year);
             setMinYearMonth(min);
             setMaxYearMonth(max);
@@ -112,7 +117,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
         getTransactions();
     }, [])
 
-    // Adicionar transação
+    // Add transaction
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError(null);
@@ -154,7 +159,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
         }
     }
 
-    // Eliminar transação
+    // Delete transaction
     const handleDelete = async (transactionId: string) => {
 
         if (!transactionId) {
@@ -180,7 +185,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
 
     }
 
-    // Abrir formulário de edição com dados preenchidos
+    // Open edit form with prefilled data
     const openEditForm = (t: Transaction) => {
         setShowAddForm(false);
         setEditingId(t.id);
@@ -195,7 +200,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
         });
     }
 
-    // Submeter edição
+    // Submit edit
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingId) return;
@@ -265,6 +270,157 @@ export default function TransactionsTable({ userId }: { userId: string }) {
     const availableMonthsForYear = (year: number | null) => {
         if (year === null) return [] as number[];
         return availableYearMonths.filter(x => x.year === year).map(x => x.month);
+    };
+
+    const maxExportMonths = userPlan === "pro" ? 12 : userPlan === "plus" ? 2 : 0;
+
+    const handleExportPDF = async () => {
+        if (!exportStartDate || !exportEndDate) {
+            toast.error("Please select both start and end dates");
+            return;
+        }
+
+        const start = new Date(exportStartDate);
+        const end = new Date(exportEndDate);
+        end.setHours(23, 59, 59, 999);
+
+        if (start > end) {
+            toast.error("Start date must be before end date");
+            return;
+        }
+
+        const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+        if (monthsDiff > maxExportMonths) {
+            toast.error(`Your plan allows exporting up to ${maxExportMonths} months. Please select a shorter period.`);
+            return;
+        }
+
+        const filtered = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= start && d <= end;
+        });
+
+        if (filtered.length === 0) {
+            toast.error("No transactions found in the selected period");
+            return;
+        }
+
+        setIsExporting(true);
+
+        try {
+            const doc = new jsPDF();
+            let yPos = 20;
+
+            // Load and add logo
+            const logoPath = "/branding/Transparent Colored Symbol.png";
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext("2d");
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0);
+                            const imgData = canvas.toDataURL("image/png");
+                            // Add logo at top right, 15mm height
+                            const logoHeight = 15;
+                            const logoWidth = (img.width / img.height) * logoHeight;
+                            doc.addImage(imgData, "PNG", 190 - logoWidth - 14, 10, logoWidth, logoHeight);
+                        }
+                        resolve();
+                    } catch (error) {
+                        console.warn("Could not add logo to PDF:", error);
+                        resolve(); // Continue without logo
+                    }
+                };
+                img.onerror = () => {
+                    console.warn("Could not load logo image");
+                    resolve(); // Continue without logo
+                };
+                img.src = logoPath;
+            });
+
+            doc.setFontSize(18);
+            doc.text("Transaction Report", 14, yPos);
+            yPos += 10;
+
+            doc.setFontSize(10);
+            doc.text(`Period: ${start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, 14, yPos);
+            yPos += 8;
+
+            const income = filtered.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+            const expenses = filtered.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+            const net = income - expenses;
+
+            doc.setFontSize(12);
+            doc.text("Summary", 14, yPos);
+            yPos += 7;
+            doc.setFontSize(10);
+            doc.text(`Income: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(income)}`, 14, yPos);
+            yPos += 6;
+            doc.text(`Expenses: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(expenses)}`, 14, yPos);
+            yPos += 6;
+            doc.text(`Net: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(net)}`, 14, yPos);
+            yPos += 10;
+
+            doc.setFontSize(12);
+            doc.text("Transactions", 14, yPos);
+            yPos += 7;
+
+            doc.setFontSize(9);
+            const headers = ["Date", "Title", "Category", "Type", "Amount"];
+            const colWidths = [30, 60, 40, 25, 35];
+            let xPos = 14;
+
+            headers.forEach((header, i) => {
+                doc.text(header, xPos, yPos);
+                xPos += colWidths[i];
+            });
+            yPos += 5;
+
+            doc.setLineWidth(0.1);
+            doc.line(14, yPos, 190, yPos);
+            yPos += 5;
+
+            filtered.sort((a, b) => a.date.getTime() - b.date.getTime()).forEach((t) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+
+                const dateStr = new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(t.date);
+                const amountStr = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(t.type === "expense" ? -t.amount : t.amount);
+
+                xPos = 14;
+                doc.text(dateStr, xPos, yPos);
+                xPos += colWidths[0];
+                doc.text(t.title.length > 25 ? t.title.substring(0, 22) + "..." : t.title, xPos, yPos);
+                xPos += colWidths[1];
+                doc.text(t.category || "-", xPos, yPos);
+                xPos += colWidths[2];
+                doc.text(t.type, xPos, yPos);
+                xPos += colWidths[3];
+                doc.text(amountStr, xPos, yPos);
+                yPos += 6;
+            });
+
+            const fileName = `transaction-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+
+            toast.success("PDF exported successfully");
+            setShowExportDialog(false);
+            setExportStartDate("");
+            setExportEndDate("");
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast.error("Failed to generate PDF");
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     return (
@@ -342,9 +498,15 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                         </select>
                     </div>
                 </div>
-                <Button onClick={() => setShowAddForm((v) => !v)} className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
-                    {showAddForm ? "Cancel" : "Add transaction"}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => setShowExportDialog(true)} variant="outline" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700">
+                        <FileText size={18} />
+                        <span className="hidden sm:inline">Export PDF</span>
+                    </Button>
+                    <Button onClick={() => setShowAddForm((v) => !v)} className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-200 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
+                        {showAddForm ? "Cancel" : "Add transaction"}
+                    </Button>
+                </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
@@ -395,7 +557,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     </div>
                     {formError && <span className="text-red-600 text-sm md:col-span-6">{formError}</span>}
                     <div className="md:col-span-6">
-                        <Button disabled={isSubmitting} type="submit">{isSubmitting ? "Salvando..." : "Salvar"}</Button>
+                        <Button disabled={isSubmitting} type="submit">{isSubmitting ? "Saving..." : "Save"}</Button>
                     </div>
                 </form>
             )}
@@ -430,10 +592,62 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     </div>
                     {formError && <span className="text-red-600 text-sm md:col-span-6">{formError}</span>}
                     <div className="flex items-center gap-2 md:col-span-6">
-                        <Button disabled={isSubmitting} type="submit">{isSubmitting ? "Salvando..." : "Salvar alterações"}</Button>
-                        <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
+                        <Button disabled={isSubmitting} type="submit">{isSubmitting ? "Saving..." : "Save changes"}</Button>
+                        <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
                     </div>
                 </form>
+            )}
+            {showExportDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 w-full max-w-md mx-4">
+                        <h3 className="text-lg font-semibold text-white mb-4">Export Transaction Report</h3>
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="export-start">Start Date</Label>
+                                <input
+                                    id="export-start"
+                                    type="date"
+                                    className="px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    value={exportStartDate}
+                                    onChange={(e) => setExportStartDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="export-end">End Date</Label>
+                                <input
+                                    id="export-end"
+                                    type="date"
+                                    className="px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    value={exportEndDate}
+                                    onChange={(e) => setExportEndDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="text-xs text-neutral-400">
+                                {maxExportMonths > 0 ? `Your plan allows exporting up to ${maxExportMonths} months.` : "Please upgrade your plan to export reports."}
+                            </div>
+                            <div className="flex items-center gap-2 pt-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShowExportDialog(false);
+                                        setExportStartDate("");
+                                        setExportEndDate("");
+                                    }}
+                                    className="flex-1"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleExportPDF}
+                                    disabled={isExporting || maxExportMonths === 0}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                >
+                                    {isExporting ? "Exporting..." : "Export PDF"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
             <Table className="table-fixed w-full">
                 <TableCaption>List of your recent transactions.</TableCaption>
