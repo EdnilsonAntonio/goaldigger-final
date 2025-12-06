@@ -1,6 +1,10 @@
 import prisma from "@/db/prisma";
 import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
+import {
+  sendSubscriptionRenewalEmail,
+  sendPaymentFailedEmail,
+} from "@/lib/email";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -157,6 +161,12 @@ export async function POST(req: Request) {
                 endDate: endDate.toISOString(),
               });
 
+              // Verificar se já existe uma subscrição (para detectar renovação)
+              const existingSubscription = await prisma.subscription.findUnique({
+                where: { userId: user.id },
+              });
+              const wasRenewal = existingSubscription !== null && user.plan !== "free";
+
               // Cria ou atualiza a subscrição
               const subscription = await prisma.subscription.upsert({
                 where: { userId: user.id },
@@ -188,6 +198,18 @@ export async function POST(req: Request) {
                 oldPlan: user.plan,
                 newPlan: updatedUser.plan,
               });
+
+              // Enviar email de renovação se for uma renovação
+              if (wasRenewal) {
+                sendSubscriptionRenewalEmail(
+                  user.email,
+                  plan,
+                  period,
+                  endDate
+                ).catch((error) => {
+                  console.error("Failed to send subscription renewal email:", error);
+                });
+              }
 
               console.log(
                 `🎉 Successfully updated user ${user.id} to ${plan} ${period} plan`
@@ -294,11 +316,17 @@ export async function POST(req: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const user = await prisma.user.findFirst({
           where: { customerId: invoice.customer as string },
+          include: { Subscription: true },
         });
         if (user) {
           console.log(
             `💸 Payment failed for user ${user.id}, reverting to free plan`
           );
+          
+          // Guardar informações da subscrição antes de atualizar
+          const previousPlan = user.plan;
+          const previousPeriod = user.Subscription?.period;
+
           // Atualiza o plano do usuário para "free"
           await prisma.user.update({
             where: { id: user.id },
@@ -312,6 +340,17 @@ export async function POST(req: Request) {
           console.log(
             `✅ User ${user.id} downgraded to free plan due to payment failure`
           );
+
+          // Enviar email de falha de pagamento
+          if (previousPlan && previousPlan !== "free") {
+            sendPaymentFailedEmail(
+              user.email,
+              previousPlan,
+              previousPeriod || undefined
+            ).catch((error) => {
+              console.error("Failed to send payment failed email:", error);
+            });
+          }
         } else {
           console.warn(
             "⚠️ User not found for invoice.payment_failed",
@@ -321,22 +360,41 @@ export async function POST(req: Request) {
         break;
       }
 
-      // Caso o pagamento seja bem sucecido - Atualiza o plano do usuário
+      // Caso o pagamento seja bem sucecido - Atualiza o plano do usuário (renovação automática)
       case "invoice.payment_succeeded": {
         console.log("✅ Processing invoice.payment_succeeded");
         const invoice = event.data.object as Stripe.Invoice;
         console.log("Invoice customer:", invoice.customer);
         const user = await prisma.user.findFirst({
           where: { customerId: invoice.customer as string },
+          include: { Subscription: true },
         });
         if (!user) {
           console.warn(
             "⚠️ User not found for invoice.payment_succeeded",
             invoice.customer
           );
-          return new Response("User  not found", { status: 200 });
+          return new Response("User not found", { status: 200 });
         }
         console.log(`💰 Payment succeeded for user ${user.id}`);
+
+        // Se o usuário tem uma subscrição ativa, é uma renovação
+        if (user.Subscription && invoice.subscription) {
+          const subscription = user.Subscription;
+          const plan = subscription.plan;
+          const period = subscription.period;
+          const endDate = subscription.endDate;
+
+          // Enviar email de renovação
+          sendSubscriptionRenewalEmail(
+            user.email,
+            plan,
+            period,
+            endDate
+          ).catch((error) => {
+            console.error("Failed to send subscription renewal email:", error);
+          });
+        }
         break;
       }
 

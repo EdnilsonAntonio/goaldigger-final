@@ -1,5 +1,9 @@
 import prisma from "@/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  sendReviewNotification,
+  sendReviewConfirmation,
+} from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,6 +59,25 @@ export async function POST(req: NextRequest) {
         approved: false, // Reviews precisam ser aprovadas antes de serem exibidas
       },
     });
+
+    // Enviar emails (não bloqueia a resposta se falhar)
+    const userEmail = email?.trim() || "";
+    if (userEmail) {
+      // Enviar notificação para admin
+      sendReviewNotification({
+        rating: Number(rating),
+        comment: comment?.trim() || undefined,
+        name: name?.trim() || undefined,
+        email: userEmail,
+      }).catch((error) => {
+        console.error("Failed to send review notification email:", error);
+      });
+
+      // Enviar confirmação para o usuário
+      sendReviewConfirmation(userEmail, Number(rating)).catch((error) => {
+        console.error("Failed to send review confirmation email:", error);
+      });
+    }
 
     return NextResponse.json(
       {

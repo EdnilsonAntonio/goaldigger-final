@@ -1,5 +1,9 @@
 import prisma from "@/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  sendBugReportNotification,
+  sendBugReportConfirmation,
+} from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +63,27 @@ export async function POST(req: NextRequest) {
         status: "pending",
       },
     });
+
+    // Enviar emails (não bloqueia a resposta se falhar)
+    const userEmail = email?.trim() || "";
+    if (userEmail) {
+      // Enviar notificação para admin
+      sendBugReportNotification({
+        title: title.trim(),
+        description: description.trim(),
+        email: userEmail,
+        browserInfo: browserInfo || undefined,
+        userAgent: userAgent || undefined,
+        url: url || undefined,
+      }).catch((error) => {
+        console.error("Failed to send bug report notification email:", error);
+      });
+
+      // Enviar confirmação para o usuário
+      sendBugReportConfirmation(userEmail, title.trim()).catch((error) => {
+        console.error("Failed to send bug report confirmation email:", error);
+      });
+    }
 
     return NextResponse.json(
       {
