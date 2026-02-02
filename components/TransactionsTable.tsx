@@ -54,7 +54,13 @@ export default function TransactionsTable({ userId }: { userId: string }) {
     const [exportStartDate, setExportStartDate] = useState("");
     const [exportEndDate, setExportEndDate] = useState("");
     const [isExporting, setIsExporting] = useState(false);
-
+    
+    // Cash Flow Preferences
+    const [cashFlowCurrency, setCashFlowCurrency] = useState("USD");
+    const [cashFlowNumberFormat, setCashFlowNumberFormat] = useState("1,000.00");
+    const [defaultCategories, setDefaultCategories] = useState<string[]>([]);
+    const [showCustomCategory, setShowCustomCategory] = useState(false);
+    const [showEditCustomCategory, setShowEditCustomCategory] = useState(false);
 
     interface Transaction {
         id: string;
@@ -113,9 +119,52 @@ export default function TransactionsTable({ userId }: { userId: string }) {
         return normalized;
     }
 
+    // Load preferences
+    const loadPreferences = async () => {
+        try {
+            const response = await fetch("/api/preferences");
+            if (response.ok) {
+                const data = await response.json();
+                const prefs = data.preferences;
+                if (prefs) {
+                    setCashFlowCurrency(prefs.cashFlowDefaultCurrency || "USD");
+                    setCashFlowNumberFormat(prefs.cashFlowNumberFormat || "1,000.00");
+                    setDefaultCategories(prefs.cashFlowDefaultCategories || []);
+                }
+            }
+        } catch (error) {
+            console.error("Error loading preferences:", error);
+        }
+    };
+
+    useEffect(() => {
+        loadPreferences();
+        
+        // Listen for preference updates
+        const handlePreferencesUpdate = () => {
+            loadPreferences();
+        };
+        
+        window.addEventListener("preferencesUpdated", handlePreferencesUpdate);
+        return () => {
+            window.removeEventListener("preferencesUpdated", handlePreferencesUpdate);
+        };
+    }, []);
+
     useEffect(() => {
         getTransactions();
     }, [])
+
+    // Helper function to format currency based on preferences
+    const formatCurrency = (amount: number): string => {
+        // Determine locale based on number format
+        const locale = cashFlowNumberFormat === "1.000,00" ? "de-DE" : "en-US";
+        
+        return new Intl.NumberFormat(locale, {
+            style: "currency",
+            currency: cashFlowCurrency,
+        }).format(amount);
+    };
 
     // Add transaction
     const handleSubmit = async (e: React.FormEvent) => {
@@ -151,6 +200,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
             }
             setNewTransaction({ title: "", amount: "", category: "", type: "income", date: "", description: "" });
             setShowAddForm(false);
+            setShowCustomCategory(false);
             await getTransactions();
         } catch (err: any) {
             setFormError(err?.message || "Unexpected error");
@@ -190,10 +240,14 @@ export default function TransactionsTable({ userId }: { userId: string }) {
         setShowAddForm(false);
         setEditingId(t.id);
         setFormError(null);
+        const category = t.category || "";
+        // Verificar se a categoria atual está nas categorias padrão
+        const isDefaultCategory = defaultCategories.length > 0 && defaultCategories.includes(category);
+        setShowEditCustomCategory(!isDefaultCategory && category.trim() !== "");
         setEditTransaction({
             title: t.title,
             amount: String(t.amount),
-            category: t.category || "",
+            category: category,
             type: t.type,
             date: new Date(t.date).toISOString().slice(0, 10),
             description: t.description || "",
@@ -234,6 +288,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                 throw new Error(err?.message || "Falha ao atualizar transação");
             }
             setEditingId(null);
+            setShowEditCustomCategory(false);
             await getTransactions();
             toast.success("Transaction updated Successfully");
         } catch (err: any) {
@@ -360,11 +415,11 @@ export default function TransactionsTable({ userId }: { userId: string }) {
             doc.text("Summary", 14, yPos);
             yPos += 7;
             doc.setFontSize(10);
-            doc.text(`Income: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(income)}`, 14, yPos);
+            doc.text(`Income: ${formatCurrency(income)}`, 14, yPos);
             yPos += 6;
-            doc.text(`Expenses: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(expenses)}`, 14, yPos);
+            doc.text(`Expenses: ${formatCurrency(expenses)}`, 14, yPos);
             yPos += 6;
-            doc.text(`Net: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(net)}`, 14, yPos);
+            doc.text(`Net: ${formatCurrency(net)}`, 14, yPos);
             yPos += 10;
 
             doc.setFontSize(12);
@@ -393,7 +448,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                 }
 
                 const dateStr = new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(t.date);
-                const amountStr = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(t.type === "expense" ? -t.amount : t.amount);
+                const amountStr = formatCurrency(t.type === "expense" ? -t.amount : t.amount);
 
                 xPos = 14;
                 doc.text(dateStr, xPos, yPos);
@@ -511,19 +566,19 @@ export default function TransactionsTable({ userId }: { userId: string }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
                     <div className="text-xs text-neutral-400">Previous balance</div>
-                    <div className="text-lg font-semibold">{new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(prevBalance)}</div>
+                    <div className="text-lg font-semibold">{formatCurrency(prevBalance)}</div>
                 </div>
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
                     <div className="text-xs text-neutral-400">Income</div>
-                    <div className="text-lg font-semibold text-green-400">{new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(monthIncome)}</div>
+                    <div className="text-lg font-semibold text-green-400">{formatCurrency(monthIncome)}</div>
                 </div>
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
                     <div className="text-xs text-neutral-400">Expenses</div>
-                    <div className="text-lg font-semibold text-red-400">{new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(monthExpensesAbs)}</div>
+                    <div className="text-lg font-semibold text-red-400">{formatCurrency(monthExpensesAbs)}</div>
                 </div>
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
                     <div className="text-xs text-neutral-400">Month balance (incl. previous)</div>
-                    <div className="text-lg font-semibold">{new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(currentWithPrev)}</div>
+                    <div className="text-lg font-semibold">{formatCurrency(currentWithPrev)}</div>
                 </div>
             </div>
             {showAddForm && !editingId && (
@@ -534,7 +589,52 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     </div>
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="category">Category</Label>
-                        <input id="category" className="px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" value={newTransaction.category} onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })} />
+                        {!showCustomCategory && defaultCategories.length > 0 ? (
+                            <select
+                                id="category"
+                                className="w-full px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                value={newTransaction.category || ""}
+                                onChange={(e) => {
+                                    if (e.target.value === "__custom__") {
+                                        setShowCustomCategory(true);
+                                        setNewTransaction({ ...newTransaction, category: "" });
+                                    } else {
+                                        setNewTransaction({ ...newTransaction, category: e.target.value });
+                                    }
+                                }}
+                            >
+                                <option value="">Select a category</option>
+                                {defaultCategories.map((cat) => (
+                                    <option key={cat} value={cat}>
+                                        {cat}
+                                    </option>
+                                ))}
+                                <option value="__custom__">+ Custom Category</option>
+                            </select>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {defaultCategories.length > 0 && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setShowCustomCategory(false);
+                                            setNewTransaction({ ...newTransaction, category: "" });
+                                        }}
+                                        className="whitespace-nowrap self-start"
+                                    >
+                                        Use Default
+                                    </Button>
+                                )}
+                                <input
+                                    id="category"
+                                    className="w-full px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    placeholder="Enter category"
+                                    value={newTransaction.category}
+                                    onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                                />
+                            </div>
+                        )}
                     </div>
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="type">Type</Label>
@@ -569,7 +669,52 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     </div>
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="edit-category">Category</Label>
-                        <input id="edit-category" className="px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" value={editTransaction.category} onChange={(e) => setEditTransaction({ ...editTransaction, category: e.target.value })} />
+                        {!showEditCustomCategory && defaultCategories.length > 0 ? (
+                            <select
+                                id="edit-category"
+                                className="w-full px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                value={editTransaction.category || ""}
+                                onChange={(e) => {
+                                    if (e.target.value === "__custom__") {
+                                        setShowEditCustomCategory(true);
+                                        setEditTransaction({ ...editTransaction, category: "" });
+                                    } else {
+                                        setEditTransaction({ ...editTransaction, category: e.target.value });
+                                    }
+                                }}
+                            >
+                                <option value="">Select a category</option>
+                                {defaultCategories.map((cat) => (
+                                    <option key={cat} value={cat}>
+                                        {cat}
+                                    </option>
+                                ))}
+                                <option value="__custom__">+ Custom Category</option>
+                            </select>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {defaultCategories.length > 0 && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setShowEditCustomCategory(false);
+                                            setEditTransaction({ ...editTransaction, category: "" });
+                                        }}
+                                        className="whitespace-nowrap self-start"
+                                    >
+                                        Use Default
+                                    </Button>
+                                )}
+                                <input
+                                    id="edit-category"
+                                    className="w-full px-3 py-2 rounded-lg bg-neutral-700/50 border border-neutral-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    placeholder="Enter category"
+                                    value={editTransaction.category}
+                                    onChange={(e) => setEditTransaction({ ...editTransaction, category: e.target.value })}
+                                />
+                            </div>
+                        )}
                     </div>
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="edit-type">Type</Label>
@@ -593,7 +738,16 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     {formError && <span className="text-red-600 text-sm md:col-span-6">{formError}</span>}
                     <div className="flex items-center gap-2 md:col-span-6">
                         <Button disabled={isSubmitting} type="submit">{isSubmitting ? "Saving..." : "Save changes"}</Button>
-                        <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setEditingId(null);
+                                setShowEditCustomCategory(false);
+                            }}
+                        >
+                            Cancel
+                        </Button>
                     </div>
                 </form>
             )}
@@ -669,7 +823,7 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                             <TableCell className="whitespace-nowrap">{new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(transaction.date)}</TableCell>
                             <TableCell className="truncate max-w-[0] sm:max-w-[8rem]">{transaction.category}</TableCell>
                             <TableCell className="whitespace-nowrap">{transaction.type}</TableCell>
-                            <TableCell className="whitespace-nowrap">{new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(transaction.type === "expense" ? -transaction.amount : transaction.amount)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{formatCurrency(transaction.type === "expense" ? -transaction.amount : transaction.amount)}</TableCell>
                             <TableCell className="truncate max-w-[0] sm:max-w-[10rem] md:max-w-[14rem]">{transaction.description}</TableCell>
                             <TableCell className="flex gap-2 justify-end pr-2">
                                 <Button onClick={() => openEditForm(transaction)} variant="outline" size="icon" className="rounded-md border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700">
@@ -702,19 +856,19 @@ export default function TransactionsTable({ userId }: { userId: string }) {
                     <TableRow>
                         <TableCell colSpan={6} className="text-neutral-400">Monthly subtotal</TableCell>
                         <TableCell className="text-right text-neutral-300">
-                            {new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(monthNet)}
+                            {formatCurrency(monthNet)}
                         </TableCell>
                     </TableRow>
                     <TableRow>
                         <TableCell colSpan={6} className="text-neutral-400">Previous balance</TableCell>
                         <TableCell className="text-right text-neutral-300">
-                            {new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(prevBalance)}
+                            {formatCurrency(prevBalance)}
                         </TableCell>
                     </TableRow>
                     <TableRow>
                         <TableCell colSpan={6} className="text-neutral-400">Month balance (incl. previous)</TableCell>
                         <TableCell className="text-right text-neutral-300">
-                            {new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(currentWithPrev)}
+                            {formatCurrency(currentWithPrev)}
                         </TableCell>
                     </TableRow>
                 </TableFooter>

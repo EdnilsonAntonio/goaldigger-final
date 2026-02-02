@@ -1,6 +1,6 @@
 "use client";
 
-import { AlarmClockCheck, ArrowLeft, ArrowRight, BanknoteArrowUp, Bug, ChevronsUpDown, CreditCard, Goal, House, LifeBuoy, ListTodo, Loader, LogOut, Mail, MailCheck, MessageSquareMore, Settings, User } from "lucide-react";
+import { AlarmClockCheck, ArrowLeft, ArrowRight, BanknoteArrowUp, Bug, ChevronsUpDown, Goal, House, LifeBuoy, ListTodo, Loader, LogOut, Mail, MailCheck, MessageSquareMore, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -95,11 +95,6 @@ export default function Sidebar() {
             name: "Profile",
             href: "/profile",
             icon: User
-        },
-        {
-            name: "Billing",
-            href: "/billing",
-            icon: CreditCard
         },
         {
             name: "Settings",

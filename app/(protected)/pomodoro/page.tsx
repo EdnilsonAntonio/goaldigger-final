@@ -75,9 +75,10 @@ export default function PomodoroPage() {
     // debug - console.log(userPlan);
 
     const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
-    const [timer, setTimer] = useState(FOCUS_TIME);
+    const [timer, setTimer] = useState(FOCUS_TIME); // Será atualizado quando as preferências carregarem
     const [isRunning, setIsRunning] = useState(false);
     const [focusCount, setFocusCount] = useState(0);
+    const [preferencesLoaded, setPreferencesLoaded] = useState(false);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     // Referência para o áudio de tick
     const tickingAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -109,52 +110,101 @@ export default function PomodoroPage() {
         TICKING: true,
     });
 
-    // Carregar opções do localStorage ao iniciar
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const savedOptions = localStorage.getItem("pomodoro-options");
-            if (savedOptions) {
-                const parsed = JSON.parse(savedOptions);
-
-                // Detectar se os valores estão em segundos (valores antigos) ou minutos (valores novos)
-                const isOldFormat = parsed.FOCUS_TIME < 100; // Se focus time < 100, provavelmente está em minutos (antigo)
-
-                setCurrentOptions(parsed);
-                // Atualizar também os inputs do formulário
-                if (isOldFormat) {
-                    // Valores antigos em minutos, converter para segundos
-                    setFocusInput(parsed.FOCUS_TIME);
-                    setShortInput(parsed.SHORT_BREAK);
-                    setLongInput(parsed.LONG_BREAK);
-                    // Atualizar currentOptions para segundos
-                    const updatedOptions = {
-                        ...parsed,
-                        FOCUS_TIME: parsed.FOCUS_TIME * 60,
-                        SHORT_BREAK: parsed.SHORT_BREAK * 60,
-                        LONG_BREAK: parsed.LONG_BREAK * 60,
-                    };
-                    setCurrentOptions(updatedOptions);
-                    localStorage.setItem("pomodoro-options", JSON.stringify(updatedOptions));
-                } else {
-                    // Valores novos em segundos
-                    setFocusInput(parsed.FOCUS_TIME / 60);
-                    setShortInput(parsed.SHORT_BREAK / 60);
-                    setLongInput(parsed.LONG_BREAK / 60);
+    // Carregar opções do banco de dados ao iniciar
+    const loadPreferences = async () => {
+            try {
+                const response = await fetch("/api/preferences");
+                if (response.ok) {
+                    const data = await response.json();
+                    const prefs = data.preferences;
+                    
+                    if (prefs) {
+                        // Usar preferências do banco de dados
+                        const options = {
+                            FOCUS_TIME: prefs.pomodoroFocusTime,
+                            SHORT_BREAK: prefs.pomodoroShortBreak,
+                            LONG_BREAK: prefs.pomodoroLongBreak,
+                            FOCUS_BEFORE_LONG: prefs.pomodoroFocusBeforeLong,
+                            ALARM_SOUND: prefs.pomodoroAlarmSound,
+                            TICKING: prefs.pomodoroTickingEnabled,
+                        };
+                        
+                        setCurrentOptions(options);
+                        setFocusInput(options.FOCUS_TIME / 60);
+                        setShortInput(options.SHORT_BREAK / 60);
+                        setLongInput(options.LONG_BREAK / 60);
+                        setIntervalInput(options.FOCUS_BEFORE_LONG);
+                        setAlarmSound(options.ALARM_SOUND);
+                        setTickingEnabled(options.TICKING);
+                        // Atualizar o timer com as preferências carregadas
+                        setTimer(options.FOCUS_TIME);
+                        setPreferencesLoaded(true);
+                        return;
+                    }
                 }
-                setIntervalInput(parsed.FOCUS_BEFORE_LONG);
-                setAlarmSound(parsed.ALARM_SOUND);
-                setTickingEnabled(parsed.TICKING);
-            } else {
-                // Se não há opções salvas, usar os valores padrão
-                setCurrentOptions({
-                    FOCUS_TIME: FOCUS_TIME,
-                    SHORT_BREAK: SHORT_BREAK,
-                    LONG_BREAK: LONG_BREAK,
-                    FOCUS_BEFORE_LONG: FOCUS_BEFORE_LONG,
-                    ALARM_SOUND: ALARM_SOUNDS[0].value,
-                    TICKING: true,
-                });
+            } catch (error) {
+                console.error("Error loading preferences:", error);
             }
+            
+            // Fallback: tentar carregar do localStorage (migração)
+            if (typeof window !== "undefined") {
+                const savedOptions = localStorage.getItem("pomodoro-options");
+                if (savedOptions) {
+                    const parsed = JSON.parse(savedOptions);
+                    const isOldFormat = parsed.FOCUS_TIME < 100;
+                    
+                    if (isOldFormat) {
+                        const updatedOptions = {
+                            ...parsed,
+                            FOCUS_TIME: parsed.FOCUS_TIME * 60,
+                            SHORT_BREAK: parsed.SHORT_BREAK * 60,
+                            LONG_BREAK: parsed.LONG_BREAK * 60,
+                        };
+                        setCurrentOptions(updatedOptions);
+                        setFocusInput(parsed.FOCUS_TIME);
+                        setShortInput(parsed.SHORT_BREAK);
+                        setLongInput(parsed.LONG_BREAK);
+                        localStorage.setItem("pomodoro-options", JSON.stringify(updatedOptions));
+                    } else {
+                        setCurrentOptions(parsed);
+                        setFocusInput(parsed.FOCUS_TIME / 60);
+                        setShortInput(parsed.SHORT_BREAK / 60);
+                        setLongInput(parsed.LONG_BREAK / 60);
+                    }
+                    setIntervalInput(parsed.FOCUS_BEFORE_LONG);
+                    setAlarmSound(parsed.ALARM_SOUND);
+                    setTickingEnabled(parsed.TICKING);
+                    return;
+                }
+            }
+            
+            // Valores padrão
+            const defaultOptions = {
+                FOCUS_TIME: FOCUS_TIME,
+                SHORT_BREAK: SHORT_BREAK,
+                LONG_BREAK: LONG_BREAK,
+                FOCUS_BEFORE_LONG: FOCUS_BEFORE_LONG,
+                ALARM_SOUND: ALARM_SOUNDS[0].value,
+                TICKING: true,
+            };
+            setCurrentOptions(defaultOptions);
+            setTimer(defaultOptions.FOCUS_TIME);
+            setPreferencesLoaded(true);
+    };
+
+    useEffect(() => {
+        loadPreferences();
+        
+        // Listen for preference updates
+        const handlePreferencesUpdate = () => {
+            loadPreferences();
+        };
+        
+        if (typeof window !== "undefined") {
+            window.addEventListener("preferencesUpdated", handlePreferencesUpdate);
+            return () => {
+                window.removeEventListener("preferencesUpdated", handlePreferencesUpdate);
+            };
         }
     }, []);
 
@@ -334,7 +384,7 @@ export default function PomodoroPage() {
     };
 
     // Aplicar opções ao salvar
-    const handleSaveOptions = () => {
+    const handleSaveOptions = async () => {
         setMode("focus");
         setIsRunning(false);
         setFocusCount(0);
@@ -348,8 +398,38 @@ export default function PomodoroPage() {
         };
         setCurrentOptions(newOptions);
         setTimer(newOptions.FOCUS_TIME);
-        // Salvar no localStorage
-        localStorage.setItem("pomodoro-options", JSON.stringify(newOptions));
+        
+        // Salvar no banco de dados
+        try {
+            const response = await fetch("/api/preferences", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    pomodoroFocusTime: newOptions.FOCUS_TIME,
+                    pomodoroShortBreak: newOptions.SHORT_BREAK,
+                    pomodoroLongBreak: newOptions.LONG_BREAK,
+                    pomodoroFocusBeforeLong: newOptions.FOCUS_BEFORE_LONG,
+                    pomodoroAlarmSound: newOptions.ALARM_SOUND,
+                    pomodoroTickingEnabled: newOptions.TICKING,
+                }),
+            });
+            
+            if (response.ok) {
+                toast.success("Pomodoro settings saved!");
+                // Também salvar no localStorage como backup
+                localStorage.setItem("pomodoro-options", JSON.stringify(newOptions));
+            } else {
+                throw new Error("Failed to save preferences");
+            }
+        } catch (error) {
+            console.error("Error saving preferences:", error);
+            toast.error("Failed to save preferences. Using local storage as backup.");
+            // Fallback para localStorage
+            localStorage.setItem("pomodoro-options", JSON.stringify(newOptions));
+        }
+        
         setOptionsOpen(false);
     };
 

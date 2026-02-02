@@ -440,7 +440,7 @@ export default function DashboardPage() {
                                     <h3 className="text-sm text-neutral-400 mb-1">Total Net Balance</h3>
                                     <p className={`text-3xl font-bold ${stats.transactions.netBalance >= 0 ? 'text-green-400' : 'text-red-400'
                                         }`}>
-                                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(stats.transactions.netBalance)}
+                                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(stats.transactions.netBalance)}
                                     </p>
                                 </div>
                             </div>
